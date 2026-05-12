@@ -1,16 +1,58 @@
+import { fileIo } from '@kit.CoreFileKit';
 import { OFDFileAdapter } from '../parser/types';
 
 // 功能开头：定义 SDK 需要的最小文件能力，避免解析器直接依赖 UI 或页面能力。
-// 未来计划：确认当前 HarmonyOS NEXT SDK 后，在这里接入 @ohos.file.fs 的 exists/readText 实现。
+// 未来计划：补充二进制读取、递归清理、URI 到沙箱复制的进度回调和统一错误码。
 export class FileUtils implements OFDFileAdapter {
   async exists(path: string): Promise<boolean> {
-    console.info(`[ofdkit] TODO: 确认 @ohos.file.fs 文件存在 API：${path}`);
-    throw new Error('FileUtils.exists 尚未接入 HarmonyOS 文件 API，请确认 @ohos.file.fs 可用签名后实现');
+    try {
+      return await fileIo.access(path, fileIo.AccessModeType.EXIST);
+    } catch (error) {
+      console.error(`[ofdkit] 文件访问失败：${path}`);
+      return false;
+    }
   }
 
   async readText(path: string): Promise<string> {
-    console.info(`[ofdkit] TODO: 确认 @ohos.file.fs 文本读取 API：${path}`);
-    throw new Error('FileUtils.readText 尚未接入 HarmonyOS 文件 API，请确认 @ohos.file.fs 可用签名后实现');
+    try {
+      return await fileIo.readText(path);
+    } catch (error) {
+      throw new Error(`读取文本文件失败：${path}`);
+    }
+  }
+
+  async copyFile(srcPath: string, destPath: string): Promise<void> {
+    let sourceFile: fileIo.File | undefined = undefined;
+    let targetFile: fileIo.File | undefined = undefined;
+
+    try {
+      sourceFile = await fileIo.open(srcPath, fileIo.OpenMode.READ_ONLY);
+      targetFile = await fileIo.open(
+        destPath,
+        fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.TRUNC
+      );
+      await fileIo.copyFile(sourceFile.fd, targetFile.fd);
+    } catch (error) {
+      throw new Error(`复制文件失败：${srcPath} -> ${destPath}`);
+    } finally {
+      if (sourceFile !== undefined) {
+        await fileIo.close(sourceFile);
+      }
+      if (targetFile !== undefined) {
+        await fileIo.close(targetFile);
+      }
+    }
+  }
+
+  async ensureDir(path: string): Promise<void> {
+    try {
+      const exists: boolean = await this.exists(path);
+      if (!exists) {
+        await fileIo.mkdir(path, true);
+      }
+    } catch (error) {
+      throw new Error(`创建目录失败：${path}`);
+    }
   }
 
   joinPath(basePath: string, childPath: string): string {

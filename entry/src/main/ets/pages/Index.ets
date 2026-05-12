@@ -1,4 +1,7 @@
+import { common } from '@kit.AbilityKit';
+import { picker } from '@kit.CoreFileKit';
 import { OFDDocument, OFDPage, OFDParser } from '../ofdkit';
+import { FileUtils } from '../ofdkit/utils/FileUtils';
 
 @Entry
 @Component
@@ -10,7 +13,7 @@ struct Index {
   build() {
     Column({ space: 16 }) {
       // 功能开头：页面只负责选择文件和展示基础解析结果，SDK 逻辑放在 ofdkit 目录。
-      // 未来计划：确认 @ohos.file.picker 后，把 TODO 按钮替换为真实的 DocumentViewPicker 调用。
+      // 未来计划：加入加载状态、最近打开记录和解析失败详情展开。
       Button('选择 OFD 文件')
         .onClick(() => {
           this.pickOFDFile();
@@ -51,11 +54,20 @@ struct Index {
     this.documentInfo = undefined;
 
     try {
-      // 待确认 API 方案：
-      // 1. @ohos.file.picker.DocumentViewPicker + select({ fileSuffixFilters: ['.ofd'] })
-      // 2. @ohos.file.picker.DocumentSelectOptions，选择后拿到 uri 再复制到应用沙箱
-      // 3. 如果 picker 返回 uri 不能直接解压，需要先通过 fs.open/read/write 复制为本地 .ofd 文件
-      throw new Error('文件选择器尚未接入：请确认 @ohos.file.picker 的可用签名后实现');
+      const context: common.UIAbilityContext = this.getAbilityContext();
+      const documentPicker: picker.DocumentViewPicker = new picker.DocumentViewPicker(context);
+      const selectedUris: Array<string> = await documentPicker.select({
+        fileSuffixFilters: ['OFD 文档|.ofd'],
+        maxSelectNumber: 1
+      });
+
+      if (selectedUris.length === 0) {
+        this.message = '未选择文件';
+        return;
+      }
+
+      const localPath: string = await this.copyPickedFileToCache(selectedUris[0], context.cacheDir);
+      await this.parseOFDFile(localPath, context.cacheDir);
     } catch (error) {
       const message: string = error instanceof Error ? error.message : '选择 OFD 文件失败';
       this.errorMessage = message;
@@ -63,10 +75,36 @@ struct Index {
     }
   }
 
-  private async parseOFDFile(ofdPath: string): Promise<void> {
-    const parser: OFDParser = new OFDParser();
+  private async parseOFDFile(ofdPath: string, cacheDir: string): Promise<void> {
+    const parser: OFDParser = new OFDParser({
+      workDir: `${cacheDir}/ofdkit/extract`
+    });
     const document: OFDDocument = await parser.parse(ofdPath);
     this.documentInfo = document;
     this.message = `解析完成：${ofdPath}`;
+  }
+
+  private getAbilityContext(): common.UIAbilityContext {
+    const context: common.UIAbilityContext | undefined =
+      this.getUIContext().getHostContext() as common.UIAbilityContext | undefined;
+    if (!context) {
+      throw new Error('获取 UIAbilityContext 失败');
+    }
+    return context;
+  }
+
+  private async copyPickedFileToCache(uri: string, cacheDir: string): Promise<string> {
+    const fileUtils: FileUtils = new FileUtils();
+    const targetDir: string = `${cacheDir}/ofdkit/source`;
+    await fileUtils.ensureDir(targetDir);
+
+    const targetPath: string = `${targetDir}/picked_${Date.now()}.ofd`;
+    try {
+      await fileUtils.copyFile(uri, targetPath);
+      console.info(`[ofdkit] 已复制选择文件：${uri} -> ${targetPath}`);
+      return targetPath;
+    } catch (error) {
+      throw new Error('复制所选 OFD 文件到应用缓存失败');
+    }
   }
 }
