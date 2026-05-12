@@ -1,6 +1,6 @@
 {
   "modelVersion": "6.1.1",
-  "description": "Please describe the basic information.",
+  "description": "HarmonyOS NEXT ArkTS 原生 OFD 解析与渲染库",
   "dependencies": {
   },
   "devDependencies": {

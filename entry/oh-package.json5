@@ -1,10 +1,9 @@
 {
   "name": "entry",
   "version": "1.0.0",
-  "description": "Please describe the basic information.",
+  "description": "ofdkit-harmony 示例应用",
   "main": "",
-  "author": "",
-  "license": "",
+  "author": "Mo",
+  "license": "Apache-2.0",
   "dependencies": {}
 }
-
