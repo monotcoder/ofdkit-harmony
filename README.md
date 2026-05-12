@@ -4,6 +4,14 @@
 
 项目目标是遵循 GB/T 33190-2016，提供可在鸿蒙原生应用中直接使用的 OFD 阅读能力，并在后续发布到 ohpm。
 
+## 仓库说明
+
+Gitee 是本项目主仓库：
+
+https://gitee.com/notcoder/ofdkit-harmony
+
+GitHub 仓库仅作为镜像同步使用。Issue、Pull Request 和功能讨论请优先提交到 Gitee 主仓库。
+
 ## 当前阶段
 
 阶段一：OFD 文件结构解析。
