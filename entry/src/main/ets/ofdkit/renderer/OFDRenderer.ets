@@ -1,5 +1,5 @@
 // 将 OFD 页面对象渲染到 Canvas。
-// 坐标系：OFD 用毫米，先 ctx.scale(mmToPx*scale) 整体放大，后续都用毫米坐标绘制。
+// 坐标系：OFD 用毫米。每次绘制根据 ctx.width / physicalBox.width 现场算 px/mm，避开 vp/px 混淆。
 // 对象局部坐标：translate(boundary.x, boundary.y) 后再 transform(CTM)，内部坐标都基于 boundary 局部坐标系。
 // 资源依赖：renderText 查注册过的字体名，renderImage 查 PixelMap，DrawParam 提供绘制参数默认值。
 
@@ -20,11 +20,6 @@ import {
 } from '../parser/types';
 import { ResourceParser } from '../parser/ResourceParser';
 
-export interface CanvasSize {
-  width: number;
-  height: number;
-}
-
 export interface RenderResources {
   resources: OFDResources;
   pixelMaps: Map<string, image.PixelMap>;
@@ -32,43 +27,35 @@ export interface RenderResources {
 }
 
 export class OFDRenderer {
-  private readonly scale: number;
-  private readonly mmToPx: number = 96 / 25.4;
   private renderResources: RenderResources | undefined = undefined;
-
-  constructor(scale: number = 1.0) {
-    this.scale = scale;
-  }
 
   setResources(resources: RenderResources | undefined): void {
     this.renderResources = resources;
   }
 
-  getCanvasSize(page: OFDPage): CanvasSize {
-    return {
-      width: page.physicalBox.width * this.mmToPx * this.scale,
-      height: page.physicalBox.height * this.mmToPx * this.scale
-    };
-  }
-
   renderPage(page: OFDPage, ctx: CanvasRenderingContext2D): void {
-    const canvasWidth: number = ctx.width;
-    const canvasHeight: number = ctx.height;
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    const widthPx: number = ctx.width;
+    const heightPx: number = ctx.height;
+    ctx.clearRect(0, 0, widthPx, heightPx);
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    ctx.fillRect(0, 0, widthPx, heightPx);
 
     if (page.content === undefined) {
       console.warn(`[ofdkit] 页面 ${page.pageIndex + 1} 无内容`);
       return;
     }
+    if (page.physicalBox.width <= 0) {
+      console.warn(`[ofdkit] 页面 ${page.pageIndex + 1} PhysicalBox 宽度异常`);
+      return;
+    }
 
     ctx.save();
-    ctx.scale(this.mmToPx * this.scale, this.mmToPx * this.scale);
+    const pxPerMm: number = widthPx / page.physicalBox.width;
+    ctx.scale(pxPerMm, pxPerMm);
     page.content.layers.forEach((layer: Layer) => this.renderLayer(layer, ctx));
     ctx.restore();
 
-    console.info(`[ofdkit] 页面 ${page.pageIndex + 1} 渲染完成`);
+    console.info(`[ofdkit] 页面 ${page.pageIndex + 1} 渲染完成（${widthPx}x${heightPx}px, ${pxPerMm.toFixed(2)}px/mm）`);
   }
 
   private renderLayer(layer: Layer, ctx: CanvasRenderingContext2D): void {
