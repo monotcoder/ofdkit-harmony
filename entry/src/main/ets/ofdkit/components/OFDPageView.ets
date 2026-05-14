@@ -1,4 +1,5 @@
 // OFD 单页 Canvas 渲染组件。
+// Canvas 自适应父容器宽度，高度按 PhysicalBox 比例自动计算。
 // 切换 @Prop page 时：预加载本页字体（注册到系统）+ 解码本页图片到 PixelMap，准备好后再渲染。
 
 import { font } from '@kit.ArkUI';
@@ -13,26 +14,22 @@ import {
   OFDFont,
   OFDMultiMedia
 } from '../parser/types';
-import { OFDRenderer, CanvasSize, RenderResources } from '../renderer/OFDRenderer';
+import { OFDRenderer, RenderResources } from '../renderer/OFDRenderer';
 
-// 全局去重：font.registerFont 同名重复注册会抛错。
 const registeredFontFamilies: Set<string> = new Set<string>();
 
 @Component
 export struct OFDPageView {
   @Prop @Watch('onPageChanged') page: OFDPage;
-  @State canvasWidth: number = 0;
-  @State canvasHeight: number = 0;
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
-  private renderer: OFDRenderer = new OFDRenderer(1.5);
+  private renderer: OFDRenderer = new OFDRenderer();
   private pixelMaps: Map<string, image.PixelMap> = new Map<string, image.PixelMap>();
   private fontFamilies: Map<string, string> = new Map<string, string>();
   private canvasReady: boolean = false;
   private resourcesReady: boolean = false;
 
   aboutToAppear(): void {
-    this.updateSize();
     this.prepare();
   }
 
@@ -43,8 +40,8 @@ export struct OFDPageView {
   build() {
     Column() {
       Canvas(this.context)
-        .width(this.canvasWidth)
-        .height(this.canvasHeight)
+        .width('100%')
+        .aspectRatio(this.aspectRatio())
         .backgroundColor('#FFFFFF')
         .onReady(() => {
           this.canvasReady = true;
@@ -55,11 +52,19 @@ export struct OFDPageView {
     .alignItems(HorizontalAlign.Center)
   }
 
+  private aspectRatio(): number {
+    const w: number = this.page.physicalBox.width;
+    const h: number = this.page.physicalBox.height;
+    if (w <= 0 || h <= 0) {
+      return 0.707;
+    }
+    return w / h;
+  }
+
   private onPageChanged(): void {
     this.resourcesReady = false;
     this.releasePixelMaps();
     this.fontFamilies = new Map<string, string>();
-    this.updateSize();
     this.prepare();
   }
 
@@ -74,12 +79,6 @@ export struct OFDPageView {
         this.resourcesReady = true;
         this.renderIfReady();
       });
-  }
-
-  private updateSize(): void {
-    const size: CanvasSize = this.renderer.getCanvasSize(this.page);
-    this.canvasWidth = size.width;
-    this.canvasHeight = size.height;
   }
 
   private renderIfReady(): void {
