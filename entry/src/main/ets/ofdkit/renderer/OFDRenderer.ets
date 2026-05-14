@@ -53,51 +53,12 @@ export class OFDRenderer {
     }
 
     this.pxPerMm = widthPx / page.physicalBox.width;
-    console.info(`[ofdkit][diag] ctx.width=${widthPx} ctx.height=${heightPx} pxPerMm=${this.pxPerMm.toFixed(3)}`);
-
-    // sanity check：绕开所有 OFD 数据，在 Canvas 左上角画一个明显的红字
-    ctx.save();
-    ctx.fillStyle = '#FF0000';
-    ctx.font = '40px sans-serif';
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    ctx.fillText('TEST 测试 ABC', 10, 10);
-    console.info(`[ofdkit][diag] sanity test painted; ctx.font="${ctx.font}" fillStyle="${ctx.fillStyle}"`);
-    ctx.restore();
-
     ctx.save();
     ctx.scale(this.pxPerMm, this.pxPerMm);
-
-    // sanity check 2：在 scale 状态下画一个紫色大字，验证 ctx.scale 后 fillText 是否工作
-    ctx.save();
-    ctx.fillStyle = '#FF00FF';
-    ctx.font = `${30 * this.pxPerMm}px sans-serif`;
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    ctx.fillText('SCALED 紫字', 20, 80);
-    console.info('[ofdkit][diag] scaled sanity painted at mm(20,80) font size 30mm');
-    ctx.restore();
-
-    // sanity check 3：字号梯度，蓝色，每行不同 mm 尺寸，看哪个起开始可见
-    ctx.save();
-    ctx.fillStyle = '#0000CC';
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    const sizes: number[] = [4, 6, 9, 12, 18, 25];
-    let yPos: number = 130;
-    for (let i: number = 0; i < sizes.length; i++) {
-      const mm: number = sizes[i];
-      ctx.font = `${mm * this.pxPerMm}px sans-serif`;
-      ctx.fillText(`${mm}mm 测试 ABC`, 20, yPos);
-      yPos += mm + 2;
-    }
-    console.info(`[ofdkit][diag] size gradient painted 4-25mm at x=20, starting y=130`);
-    ctx.restore();
-
     page.content.layers.forEach((layer: Layer) => this.renderLayer(layer, ctx));
     ctx.restore();
 
-    console.info(`[ofdkit] 页面 ${page.pageIndex + 1} 渲染完成（${widthPx}x${heightPx}px, ${this.pxPerMm.toFixed(2)}px/mm）`);
+    console.info(`[ofdkit] 页面 ${page.pageIndex + 1} 渲染完成`);
   }
 
   private renderLayer(layer: Layer, ctx: CanvasRenderingContext2D): void {
@@ -147,8 +108,6 @@ export class OFDRenderer {
 
     const shouldStroke: boolean = obj.stroke === true;
     const shouldFill: boolean = obj.fill !== false;
-
-    console.info(`[ofdkit][text] id=${obj.id} fontId=${obj.font} sizeMm=${obj.size} fontPx=${fontPx.toFixed(2)} family=${family} effectiveFont="${ctx.font}" fill=${ctx.fillStyle} shouldFill=${shouldFill} codes=${obj.textCodes.length}`);
 
     obj.textCodes.forEach((code: TextCode) => this.drawTextCode(code, ctx, shouldFill, shouldStroke));
   }
