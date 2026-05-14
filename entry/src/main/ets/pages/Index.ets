@@ -1,7 +1,8 @@
 import { common } from '@kit.AbilityKit';
 import { picker } from '@kit.CoreFileKit';
-import { OFDDocument, OFDPage, OFDParser } from '../ofdkit';
+import { OFDDocument, OFDPage, OFDParser, PageContent, Layer } from '../ofdkit';
 import { FileUtils } from '../ofdkit/utils/FileUtils';
+import { OFDPageView } from '../ofdkit/components/OFDPageView';
 
 @Entry
 @Component
@@ -9,11 +10,13 @@ struct Index {
   @State message: string = '请选择一个 OFD 文件';
   @State errorMessage: string = '';
   @State documentInfo: OFDDocument | undefined = undefined;
+  @State selectedPageIndex: number = 0;
+  @State showPreview: boolean = false;
 
   build() {
     Column({ space: 16 }) {
       // 功能开头：页面只负责选择文件和展示基础解析结果，SDK 逻辑放在 ofdkit 目录。
-      // 未来计划：加入加载状态、最近打开记录和解析失败详情展开。
+      // 阶段三扩展：添加 Canvas 渲染预览功能。
       Button('选择 OFD 文件')
         .onClick(() => {
           this.pickOFDFile();
@@ -30,23 +33,159 @@ struct Index {
       }
 
       if (this.documentInfo !== undefined) {
-        Text(`版本号：${this.documentInfo.version}`)
-          .fontSize(14)
-        Text(`文档类型：${this.documentInfo.docType}`)
-          .fontSize(14)
-        Text(`总页数：${this.documentInfo.pages.length}`)
-          .fontSize(14)
+        this.renderDocumentInfo()
+      }
 
-        ForEach(this.documentInfo.pages, (page: OFDPage) => {
-          Text(`第 ${page.pageIndex + 1} 页：${page.physicalBox.width} × ${page.physicalBox.height} mm`)
-            .fontSize(14)
-        }, (page: OFDPage) => page.id)
+      if (this.showPreview && this.documentInfo !== undefined) {
+        this.renderPagePreview()
       }
     }
     .height('100%')
     .width('100%')
     .padding(24)
     .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private renderDocumentInfo(): void {
+    Column({ space: 12 }) {
+      Text(`版本号：${this.documentInfo!.version}`)
+        .fontSize(14)
+      Text(`文档类型：${this.documentInfo!.docType}`)
+        .fontSize(14)
+      Text(`总页数：${this.documentInfo!.pages.length}`)
+        .fontSize(14)
+
+      Button(this.showPreview ? '隐藏预览' : '显示预览')
+        .onClick(() => {
+          this.showPreview = !this.showPreview;
+        })
+
+      ForEach(this.documentInfo!.pages, (page: OFDPage) => {
+        Column({ space: 8 }) {
+          Row({ space: 8 }) {
+            Text(`第 ${page.pageIndex + 1} 页：${page.physicalBox.width} × ${page.physicalBox.height} mm`)
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .layoutWeight(1)
+
+            if (this.showPreview) {
+              Button('预览')
+                .fontSize(12)
+                .height(28)
+                .onClick(() => {
+                  this.selectedPageIndex = page.pageIndex;
+                })
+            }
+          }
+          .width('100%')
+
+          if (page.content !== undefined) {
+            this.renderPageContent(page.content)
+          }
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding({ left: 16, top: 8, bottom: 8 })
+        .backgroundColor('#F5F5F5')
+        .borderRadius(8)
+      }, (page: OFDPage) => page.id)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private renderPagePreview(): void {
+    Column({ space: 8 }) {
+      Text(`预览第 ${this.selectedPageIndex + 1} 页`)
+        .fontSize(16)
+        .fontWeight(FontWeight.Bold)
+
+      if (this.selectedPageIndex < this.documentInfo!.pages.length) {
+        OFDPageView({ page: this.documentInfo!.pages[this.selectedPageIndex] })
+      }
+
+      Row({ space: 8 }) {
+        Button('上一页')
+          .enabled(this.selectedPageIndex > 0)
+          .onClick(() => {
+            if (this.selectedPageIndex > 0) {
+              this.selectedPageIndex--;
+            }
+          })
+
+        Button('下一页')
+          .enabled(this.selectedPageIndex < this.documentInfo!.pages.length - 1)
+          .onClick(() => {
+            if (this.selectedPageIndex < this.documentInfo!.pages.length - 1) {
+              this.selectedPageIndex++;
+            }
+          })
+      }
+    }
+    .width('100%')
+    .padding(16)
+    .backgroundColor('#EEEEEE')
+    .borderRadius(8)
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private renderPageContent(content: PageContent): void {
+    Column({ space: 4 }) {
+      Text(`图层数：${content.layers.length}`)
+        .fontSize(12)
+        .fontColor('#666666')
+
+      ForEach(content.layers, (layer: Layer, layerIndex: number) => {
+        this.renderLayerInfo(layer, layerIndex)
+      }, (layer: Layer, index: number) => `layer_${index}`)
+    }
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private renderLayerInfo(layer: Layer, layerIndex: number): void {
+    Column({ space: 2 }) {
+      Text(`图层 ${layerIndex + 1}：${layer.objects.length} 个对象`)
+        .fontSize(12)
+        .fontColor('#888888')
+
+      this.renderObjectCounts(layer)
+    }
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private renderObjectCounts(layer: Layer): void {
+    if (this.getTextCount(layer) > 0) {
+      Text(`  - 文字对象：${this.getTextCount(layer)}`)
+        .fontSize(11)
+        .fontColor('#999999')
+    }
+    if (this.getPathCount(layer) > 0) {
+      Text(`  - 路径对象：${this.getPathCount(layer)}`)
+        .fontSize(11)
+        .fontColor('#999999')
+    }
+    if (this.getImageCount(layer) > 0) {
+      Text(`  - 图片对象：${this.getImageCount(layer)}`)
+        .fontSize(11)
+        .fontColor('#999999')
+    }
+  }
+
+  private getTextCount(layer: Layer): number {
+    return layer.objects.filter(obj => obj.type === 'text').length;
+  }
+
+  private getPathCount(layer: Layer): number {
+    return layer.objects.filter(obj => obj.type === 'path').length;
+  }
+
+  private getImageCount(layer: Layer): number {
+    return layer.objects.filter(obj => obj.type === 'image').length;
   }
 
   private async pickOFDFile(): Promise<void> {
