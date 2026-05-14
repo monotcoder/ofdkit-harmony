@@ -1,86 +1,105 @@
-import { OFDPage, OFDPageRef, PageBox } from './types';
+// 解析 Document.xml：拿到页面引用列表，并把每页的 Content.xml 交给 ContentParser。
 
-// 功能开头：解析 Document.xml 的页面列表，并从每页 Content.xml 读取 PhysicalBox。
-// 未来计划：补充 PageArea 继承规则、TemplatePage、资源引用和更完整的 XML 命名空间处理。
+import { OFDPage, OFDPageRef, PageBox, ParsedPage } from './types';
+import { XmlNode, XmlParser } from '../utils/XmlParser';
+import { ContentParser } from './ContentParser';
+import { ParseHelpers } from './ParseHelpers';
+
 export class DocumentParser {
-  parse(documentXml: string, pageContents: Map<string, string>): OFDPage[] {
-    const refs: OFDPageRef[] = this.parsePageRefs(documentXml);
-    const pages: OFDPage[] = [];
+  private readonly contentParser: ContentParser = new ContentParser();
 
+  parse(documentXml: string, pageContents: Map<string, string>): OFDPage[] {
+    const docNode: XmlNode = XmlParser.parse(documentXml);
+    if (docNode.name !== 'Document') {
+      throw new Error(`Document.xml 根节点应为 <Document>，实际：<${docNode.name}>`);
+    }
+
+    const fallbackBox: PageBox | undefined = this.parseDefaultPageBox(docNode);
+    const refs: OFDPageRef[] = this.collectPageRefs(docNode);
+    if (refs.length === 0) {
+      throw new Error('Document.xml 中未找到页面列表');
+    }
+
+    const pages: OFDPage[] = [];
     refs.forEach((ref: OFDPageRef, index: number) => {
       const contentXml: string | undefined = pageContents.get(ref.baseLoc);
-      if (!contentXml) {
+      if (contentXml === undefined) {
         throw new Error(`未找到页面内容文件：${ref.baseLoc}`);
       }
 
-      pages.push({
-        id: ref.id,
-        pageIndex: index,
-        physicalBox: this.parsePhysicalBox(contentXml)
-      });
+      try {
+        const parsed: ParsedPage = this.contentParser.parsePage(contentXml);
+        pages.push({
+          id: ref.id,
+          pageIndex: index,
+          physicalBox: parsed.physicalBox,
+          content: parsed.content
+        });
+      } catch (error) {
+        console.warn(`[ofdkit] 解析页面 ${index + 1} 失败，降级：${error}`);
+        if (fallbackBox === undefined) {
+          throw new Error(`页面 ${index + 1} 解析失败且没有可用的默认 PhysicalBox`);
+        }
+        pages.push({
+          id: ref.id,
+          pageIndex: index,
+          physicalBox: fallbackBox
+        });
+      }
     });
 
     return pages;
   }
 
   parsePageRefs(documentXml: string): OFDPageRef[] {
-    const refs: OFDPageRef[] = [];
-    const pageRegExp: RegExp = /<ofd:Page\b([^>]*)\/>|<Page\b([^>]*)\/>/g;
-    let match: RegExpExecArray | null = pageRegExp.exec(documentXml);
-
-    while (match !== null) {
-      const attrs: string = match[1] ? match[1] : match[2];
-      refs.push({
-        id: this.readAttribute(attrs, 'ID'),
-        baseLoc: this.readAttribute(attrs, 'BaseLoc')
-      });
-      match = pageRegExp.exec(documentXml);
+    const docNode: XmlNode = XmlParser.parse(documentXml);
+    if (docNode.name !== 'Document') {
+      throw new Error(`Document.xml 根节点应为 <Document>，实际：<${docNode.name}>`);
     }
-
+    const refs: OFDPageRef[] = this.collectPageRefs(docNode);
     if (refs.length === 0) {
       throw new Error('Document.xml 中未找到页面列表');
     }
-
     return refs;
   }
 
-  parsePhysicalBox(contentXml: string): PageBox {
-    const boxText: string = this.readElementText(contentXml, 'PhysicalBox');
-    const values: number[] = boxText.split(/\s+/)
-      .filter((item: string) => item.length > 0)
-      .map((item: string) => Number(item));
-
-    if (values.length !== 4 || values.some((item: number) => Number.isNaN(item))) {
-      throw new Error(`PhysicalBox 格式错误：${boxText}`);
+  private collectPageRefs(docNode: XmlNode): OFDPageRef[] {
+    const pagesNode: XmlNode | undefined = XmlParser.findChild(docNode, 'Pages');
+    if (pagesNode === undefined) {
+      return [];
     }
-
-    return {
-      x: values[0],
-      y: values[1],
-      width: values[2],
-      height: values[3]
-    };
+    const refs: OFDPageRef[] = [];
+    XmlParser.findChildren(pagesNode, 'Page').forEach((pageNode: XmlNode) => {
+      try {
+        refs.push({
+          id: XmlParser.requireAttr(pageNode, 'ID'),
+          baseLoc: XmlParser.requireAttr(pageNode, 'BaseLoc')
+        });
+      } catch (error) {
+        console.warn(`[ofdkit] 跳过非法 Page 引用：${error}`);
+      }
+    });
+    return refs;
   }
 
-  private readAttribute(attrs: string, name: string): string {
-    const attrRegExp: RegExp = new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`);
-    const match: RegExpExecArray | null = attrRegExp.exec(attrs);
-
-    if (!match) {
-      throw new Error(`缺少 ${name} 属性`);
+  private parseDefaultPageBox(docNode: XmlNode): PageBox | undefined {
+    const commonData: XmlNode | undefined = XmlParser.findChild(docNode, 'CommonData');
+    if (commonData === undefined) {
+      return undefined;
     }
-
-    return match[1];
-  }
-
-  private readElementText(xml: string, localName: string): string {
-    const elementRegExp: RegExp = new RegExp(`<(?:ofd:)?${localName}\\b[^>]*>([\\s\\S]*?)<\\/(?:ofd:)?${localName}>`);
-    const match: RegExpExecArray | null = elementRegExp.exec(xml);
-
-    if (!match) {
-      throw new Error(`未找到 ${localName} 节点`);
+    const pageArea: XmlNode | undefined = XmlParser.findChild(commonData, 'PageArea');
+    if (pageArea === undefined) {
+      return undefined;
     }
-
-    return match[1].trim();
+    const boxText: string | undefined = XmlParser.childText(pageArea, 'PhysicalBox');
+    if (boxText === undefined) {
+      return undefined;
+    }
+    try {
+      return ParseHelpers.box(boxText);
+    } catch (error) {
+      console.warn(`[ofdkit] Document.xml 中 PhysicalBox 格式错误：${error}`);
+      return undefined;
+    }
   }
 }
