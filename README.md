@@ -14,22 +14,30 @@ GitHub 仓库仅作为镜像同步使用。Issue、Pull Request 和功能讨论�
 
 ## 当前阶段
 
-阶段一：OFD 文件结构解析。
+阶段四：字体、图片和资源管理。
 
-当前已完成基础骨架：
+当前已完成：
 
-- 选择 `.ofd` 文件
-- 将文件复制到应用缓存目录
+- 选择 `.ofd` 文件并复制到应用缓存目录
 - 解压 OFD ZIP 包
-- 解析 `OFD.xml` 和 `Document.xml`
-- 展示文档版本、总页数和页面物理尺寸
+- 自研轻量 XML DOM 解析器，替代正则解析
+- 解析 `OFD.xml` / `Document.xml` / `Content.xml`
+- 解析页面内容对象（文字、路径、图片）、图层结构、PageBlock 嵌套
+- 解析变换矩阵（CTM）
+- Canvas 页面渲染（按文档绘制顺序保留 z-order）
+- 文字对象渲染（支持 DeltaX/DeltaY 逐字定位、HScale、italic/weight）
+- 路径对象渲染（支持 S/M/L/Q/B/C 命令，A 暂占位）
+- **解析 PublicRes / DocumentRes 资源索引**
+- **字体加载：注册 OFD 嵌入字体到系统**
+- **图片资源加载：解码到 PixelMap 并真实绘制**
+- **DrawParam 绘制参数应用（含 Relative 继承链）**
+- 页面预览和切换功能
 
 暂未实现：
 
-- 页面内容渲染
-- 字体处理
-- 图片资源解析
-- 签章处理
+- 签章（CT_Signatures）与国密验签
+- ColorSpace、Annotations、Template Pages
+- 圆弧命令 A 的完整支持
 - ohpm Library 抽离
 
 ## 环境要求
@@ -49,8 +57,16 @@ entry/src/main/ets/
     ├── parser/
     │   ├── OFDParser.ets
     │   ├── DocumentParser.ets
+    │   ├── ContentParser.ets
+    │   ├── ResourceParser.ets
+    │   ├── ParseHelpers.ets
     │   └── types.ets
+    ├── renderer/
+    │   └── OFDRenderer.ets
+    ├── components/
+    │   └── OFDPageView.ets
     ├── utils/
+    │   ├── XmlParser.ets
     │   ├── FileUtils.ets
     │   └── ZipUtils.ets
     └── index.ets
@@ -59,11 +75,27 @@ entry/src/main/ets/
 ## 使用示例
 
 ```typescript
-import { OFDParser } from './ofdkit';
+import { OFDParser, OFDRenderer } from './ofdkit';
 
 const parser = new OFDParser();
 const document = await parser.parse('/path/to/file.ofd');
 console.info(`总页数：${document.pages.length}`);
+
+// 访问页面内容
+document.pages.forEach(page => {
+  console.info(`第 ${page.pageIndex + 1} 页`);
+  page.content?.layers.forEach(layer => {
+    console.info(`  图层包含 ${layer.objects.length} 个对象`);
+    layer.objects.forEach(obj => {
+      console.info(`    - ${obj.type} 对象 ID: ${obj.id}`);
+    });
+  });
+});
+
+// 渲染页面到 Canvas
+const renderer = new OFDRenderer(2.0); // 2倍缩放
+const context = new CanvasRenderingContext2D(settings);
+renderer.renderPage(document.pages[0], context);
 ```
 
 ## 开发计划
