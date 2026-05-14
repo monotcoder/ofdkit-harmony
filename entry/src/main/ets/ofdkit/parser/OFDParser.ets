@@ -1,17 +1,21 @@
+// OFD 包入口：负责解压、读 OFD.xml、读 Document.xml、读资源 XML、按页读 Content.xml，最后组装 OFDDocument。
+
 import { DocumentParser } from './DocumentParser';
+import { ResourceParser } from './ResourceParser';
 import {
   OFDDocument,
   OFDFileAdapter,
   OFDPackageEntry,
+  OFDPage,
   OFDPageRef,
   OFDParserOptions,
+  OFDResources,
   OFDZipAdapter
 } from './types';
+import { XmlNode, XmlParser } from '../utils/XmlParser';
 import { FileUtils } from '../utils/FileUtils';
 import { ZipUtils } from '../utils/ZipUtils';
 
-// 功能开头：负责从 .ofd 包入口串起解压、OFD.xml、Document.xml 和页面尺寸解析。
-// 未来计划：加入资源目录索引、错误码体系、日志回调、进度回调和多文档入口支持。
 export class OFDParser {
   private readonly fileAdapter: OFDFileAdapter;
   private readonly zipAdapter: OFDZipAdapter;
@@ -47,21 +51,30 @@ export class OFDParser {
     const documentXmlPath: string = this.fileAdapter.joinPath(extractDir, entry.docRoot);
     const documentXml: string = await this.fileAdapter.readText(documentXmlPath);
     const pageRefs: OFDPageRef[] = this.documentParser.parsePageRefs(documentXml);
-    const pageLocs: string[] = pageRefs.map((ref: OFDPageRef) => ref.baseLoc);
-    const pageContents: Map<string, string> = new Map<string, string>();
-    const docBaseDir: string = this.parentDir(entry.docRoot);
 
-    for (let index = 0; index < pageLocs.length; index++) {
-      const pageLoc: string = pageLocs[index];
-      const contentPath: string = this.fileAdapter.joinPath(extractDir, this.fileAdapter.joinPath(docBaseDir, pageLoc));
-      pageContents.set(pageLoc, await this.fileAdapter.readText(contentPath));
-      console.info(`[ofdkit] 已读取页面 ${index + 1}：${pageLoc}`);
+    const docBaseDir: string = this.parentDir(entry.docRoot);
+    const resources: OFDResources = await this.loadResources(documentXml, extractDir, docBaseDir);
+    console.info(`[ofdkit] 资源加载完成：字体 ${resources.fonts.size}、图片 ${resources.multiMedias.size}、绘制参数 ${resources.drawParams.size}`);
+
+    const pageContents: Map<string, string> = new Map<string, string>();
+    for (let index: number = 0; index < pageRefs.length; index++) {
+      const baseLoc: string = pageRefs[index].baseLoc;
+      const relativeToRoot: string = this.fileAdapter.joinPath(docBaseDir, baseLoc);
+      const contentPath: string = this.fileAdapter.joinPath(extractDir, relativeToRoot);
+      pageContents.set(baseLoc, await this.fileAdapter.readText(contentPath));
+      console.info(`[ofdkit] 已读取页面 ${index + 1}：${baseLoc}`);
     }
+
+    const pages: OFDPage[] = this.documentParser.parse(documentXml, pageContents);
+    pages.forEach((page: OFDPage) => {
+      page.resources = resources;
+    });
 
     const document: OFDDocument = {
       version: entry.version,
       docType: entry.docType,
-      pages: this.documentParser.parse(documentXml, pageContents)
+      pages,
+      resources
     };
 
     console.info(`[ofdkit] 解析完成，总页数：${document.pages.length}`);
@@ -69,35 +82,69 @@ export class OFDParser {
   }
 
   parseOFDXml(ofdXml: string): OFDPackageEntry {
+    const root: XmlNode = XmlParser.parse(ofdXml);
+    if (root.name !== 'OFD') {
+      throw new Error(`OFD.xml 根节点应为 <OFD>，实际：<${root.name}>`);
+    }
+
+    const docBodyNode: XmlNode | undefined = XmlParser.findChild(root, 'DocBody');
+    if (docBodyNode === undefined) {
+      throw new Error('OFD.xml 缺少 <DocBody>');
+    }
+    const docRoot: string | undefined = XmlParser.childText(docBodyNode, 'DocRoot');
+    if (docRoot === undefined) {
+      throw new Error('OFD.xml 缺少 <DocRoot>');
+    }
+
     return {
-      docRoot: this.readElementText(ofdXml, 'DocRoot'),
-      version: this.readAttributeFromRoot(ofdXml, 'Version', '1.0'),
-      docType: this.readAttributeFromRoot(ofdXml, 'DocType', 'OFD')
+      docRoot,
+      version: XmlParser.attr(root, 'Version') ?? '1.0',
+      docType: XmlParser.attr(root, 'DocType') ?? 'OFD'
     };
   }
 
-  private readElementText(xml: string, localName: string): string {
-    const elementRegExp: RegExp = new RegExp(`<(?:ofd:)?${localName}\\b[^>]*>([\\s\\S]*?)<\\/(?:ofd:)?${localName}>`);
-    const match: RegExpExecArray | null = elementRegExp.exec(xml);
+  private async loadResources(documentXml: string, extractDir: string, docBaseDir: string): Promise<OFDResources> {
+    const merged: OFDResources = ResourceParser.empty();
+    const refs: string[] = this.parseResourceRefs(documentXml);
 
-    if (!match) {
-      throw new Error(`OFD.xml 缺少 ${localName} 节点`);
+    for (let i: number = 0; i < refs.length; i++) {
+      const rel: string = refs[i];
+      const relativeToRoot: string = this.fileAdapter.joinPath(docBaseDir, rel);
+      const resXmlPath: string = this.fileAdapter.joinPath(extractDir, relativeToRoot);
+      const exists: boolean = await this.fileAdapter.exists(resXmlPath);
+      if (!exists) {
+        console.warn(`[ofdkit] 资源文件不存在：${resXmlPath}`);
+        continue;
+      }
+      try {
+        const resXml: string = await this.fileAdapter.readText(resXmlPath);
+        const resXmlDir: string = this.parentDir(resXmlPath);
+        const parsed: OFDResources = ResourceParser.parse(resXml, resXmlDir, this.fileAdapter);
+        ResourceParser.merge(merged, parsed);
+      } catch (error) {
+        console.warn(`[ofdkit] 解析资源 ${rel} 失败：${error}`);
+      }
     }
-
-    return match[1].trim();
+    return merged;
   }
 
-  private readAttributeFromRoot(xml: string, name: string, fallback: string): string {
-    const rootRegExp: RegExp = /<(?:ofd:)?OFD\b([^>]*)>/;
-    const rootMatch: RegExpExecArray | null = rootRegExp.exec(xml);
-
-    if (!rootMatch) {
-      throw new Error('OFD.xml 根节点格式错误');
+  private parseResourceRefs(documentXml: string): string[] {
+    const docNode: XmlNode = XmlParser.parse(documentXml);
+    const commonData: XmlNode | undefined = XmlParser.findChild(docNode, 'CommonData');
+    if (commonData === undefined) {
+      return [];
     }
-
-    const attrRegExp: RegExp = new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`);
-    const attrMatch: RegExpExecArray | null = attrRegExp.exec(rootMatch[1]);
-    return attrMatch ? attrMatch[1] : fallback;
+    const refs: string[] = [];
+    // PublicRes 先，DocumentRes 后；后者同 ID 会覆盖前者。
+    XmlParser.findChildren(commonData, 'PublicRes').forEach((node: XmlNode) => {
+      const t: string = node.text.trim();
+      if (t.length > 0) refs.push(t);
+    });
+    XmlParser.findChildren(commonData, 'DocumentRes').forEach((node: XmlNode) => {
+      const t: string = node.text.trim();
+      if (t.length > 0) refs.push(t);
+    });
+    return refs;
   }
 
   private parentDir(path: string): string {
