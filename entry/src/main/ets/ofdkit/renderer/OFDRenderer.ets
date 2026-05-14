@@ -78,6 +78,22 @@ export class OFDRenderer {
     console.info('[ofdkit][diag] scaled sanity painted at mm(20,80) font size 30mm');
     ctx.restore();
 
+    // sanity check 3：字号梯度，蓝色，每行不同 mm 尺寸，看哪个起开始可见
+    ctx.save();
+    ctx.fillStyle = '#0000CC';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    const sizes: number[] = [4, 6, 9, 12, 18, 25];
+    let yPos: number = 130;
+    for (let i: number = 0; i < sizes.length; i++) {
+      const mm: number = sizes[i];
+      ctx.font = `${mm * this.pxPerMm}px sans-serif`;
+      ctx.fillText(`${mm}mm 测试 ABC`, 20, yPos);
+      yPos += mm + 2;
+    }
+    console.info(`[ofdkit][diag] size gradient painted 4-25mm at x=20, starting y=130`);
+    ctx.restore();
+
     page.content.layers.forEach((layer: Layer) => this.renderLayer(layer, ctx));
     ctx.restore();
 
