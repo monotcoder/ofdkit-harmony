@@ -245,9 +245,9 @@ export class OFDRenderer {
   private fontFamilyFor(fontId: string): string {
     const registered: string | undefined = this.renderResources?.fontFamilies.get(fontId);
     if (registered !== undefined) {
-      return registered;
+      return `"${registered}", sans-serif`;
     }
-    return 'HarmonyOS Sans, sans-serif';
+    return 'sans-serif';
   }
 }
 
