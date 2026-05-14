@@ -28,6 +28,9 @@ export interface RenderResources {
 
 export class OFDRenderer {
   private renderResources: RenderResources | undefined = undefined;
+  // 当前页 px/mm 换算系数，渲染时更新。
+  // HarmonyOS Canvas 中 ctx.font 的字号是绝对 vp，不跟 ctx.scale 变换，所以字号需要单独乘 pxPerMm。
+  private pxPerMm: number = 1;
 
   setResources(resources: RenderResources | undefined): void {
     this.renderResources = resources;
@@ -49,13 +52,13 @@ export class OFDRenderer {
       return;
     }
 
+    this.pxPerMm = widthPx / page.physicalBox.width;
     ctx.save();
-    const pxPerMm: number = widthPx / page.physicalBox.width;
-    ctx.scale(pxPerMm, pxPerMm);
+    ctx.scale(this.pxPerMm, this.pxPerMm);
     page.content.layers.forEach((layer: Layer) => this.renderLayer(layer, ctx));
     ctx.restore();
 
-    console.info(`[ofdkit] 页面 ${page.pageIndex + 1} 渲染完成（${widthPx}x${heightPx}px, ${pxPerMm.toFixed(2)}px/mm）`);
+    console.info(`[ofdkit] 页面 ${page.pageIndex + 1} 渲染完成（${widthPx}x${heightPx}px, ${this.pxPerMm.toFixed(2)}px/mm）`);
   }
 
   private renderLayer(layer: Layer, ctx: CanvasRenderingContext2D): void {
@@ -96,7 +99,8 @@ export class OFDRenderer {
 
     const italic: string = obj.italic === true ? 'italic ' : '';
     const weight: string = obj.weight !== undefined && obj.weight >= 700 ? 'bold ' : '';
-    ctx.font = `${italic}${weight}${obj.size}px ${family}`;
+    const fontPx: number = obj.size * this.pxPerMm;
+    ctx.font = `${italic}${weight}${fontPx}px ${family}`;
     ctx.fillStyle = colorToCss(fillColor, '#000000');
     ctx.strokeStyle = colorToCss(strokeColor, '#000000');
     ctx.textBaseline = 'alphabetic';
@@ -215,7 +219,7 @@ export class OFDRenderer {
     ctx.setLineDash([]);
 
     ctx.fillStyle = color;
-    ctx.font = `${Math.min(width, height) / 4}px sans-serif`;
+    ctx.font = `${Math.min(width, height) * this.pxPerMm / 4}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(isError ? '图片缺失' : '图片', width / 2, height / 2);
