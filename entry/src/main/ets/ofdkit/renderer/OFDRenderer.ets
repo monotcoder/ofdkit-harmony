@@ -155,28 +155,40 @@ export class OFDRenderer {
 
   private drawTextCode(code: TextCode, ctx: CanvasRenderingContext2D, fill: boolean, stroke: boolean): void {
     if (code.text.length === 0) {
-      console.info(`[ofdkit][text] empty TextCode skipped`);
       return;
     }
-    const chars: string[] = Array.from(code.text);
-    let x: number = code.x ?? 0;
-    let y: number = code.y ?? 0;
-    console.info(`[ofdkit][text] drawTextCode text="${code.text}" startPos=(${x},${y}) chars=${chars.length} fill=${fill} stroke=${stroke}`);
+    const x: number = code.x ?? 0;
+    const y: number = code.y ?? 0;
 
+    // 无字符间距数组：让 Canvas 按字体自然字符宽度整段绘制。
+    if (code.deltaX === undefined && code.deltaY === undefined) {
+      if (fill) {
+        ctx.fillText(code.text, x, y);
+      }
+      if (stroke) {
+        ctx.strokeText(code.text, x, y);
+      }
+      return;
+    }
+
+    // 有 DeltaX/DeltaY：按 OFD 标准逐字符放置，相邻字符间用 Delta 推进。
+    const chars: string[] = Array.from(code.text);
+    let cx: number = x;
+    let cy: number = y;
     for (let i: number = 0; i < chars.length; i++) {
       if (i > 0) {
         if (code.deltaX !== undefined && i - 1 < code.deltaX.length) {
-          x = x + code.deltaX[i - 1];
+          cx = cx + code.deltaX[i - 1];
         }
         if (code.deltaY !== undefined && i - 1 < code.deltaY.length) {
-          y = y + code.deltaY[i - 1];
+          cy = cy + code.deltaY[i - 1];
         }
       }
       if (fill) {
-        ctx.fillText(chars[i], x, y);
+        ctx.fillText(chars[i], cx, cy);
       }
       if (stroke) {
-        ctx.strokeText(chars[i], x, y);
+        ctx.strokeText(chars[i], cx, cy);
       }
     }
   }
