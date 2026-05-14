@@ -53,6 +53,18 @@ export class OFDRenderer {
     }
 
     this.pxPerMm = widthPx / page.physicalBox.width;
+    console.info(`[ofdkit][diag] ctx.width=${widthPx} ctx.height=${heightPx} pxPerMm=${this.pxPerMm.toFixed(3)}`);
+
+    // sanity check：绕开所有 OFD 数据，在 Canvas 左上角画一个明显的红字
+    ctx.save();
+    ctx.fillStyle = '#FF0000';
+    ctx.font = '40px sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.fillText('TEST 测试 ABC', 10, 10);
+    console.info(`[ofdkit][diag] sanity test painted; ctx.font="${ctx.font}" fillStyle="${ctx.fillStyle}"`);
+    ctx.restore();
+
     ctx.save();
     ctx.scale(this.pxPerMm, this.pxPerMm);
     page.content.layers.forEach((layer: Layer) => this.renderLayer(layer, ctx));
@@ -109,16 +121,20 @@ export class OFDRenderer {
     const shouldStroke: boolean = obj.stroke === true;
     const shouldFill: boolean = obj.fill !== false;
 
+    console.info(`[ofdkit][text] id=${obj.id} fontId=${obj.font} sizeMm=${obj.size} fontPx=${fontPx.toFixed(2)} family=${family} effectiveFont="${ctx.font}" fill=${ctx.fillStyle} shouldFill=${shouldFill} codes=${obj.textCodes.length}`);
+
     obj.textCodes.forEach((code: TextCode) => this.drawTextCode(code, ctx, shouldFill, shouldStroke));
   }
 
   private drawTextCode(code: TextCode, ctx: CanvasRenderingContext2D, fill: boolean, stroke: boolean): void {
     if (code.text.length === 0) {
+      console.info(`[ofdkit][text] empty TextCode skipped`);
       return;
     }
     const chars: string[] = Array.from(code.text);
     let x: number = code.x ?? 0;
     let y: number = code.y ?? 0;
+    console.info(`[ofdkit][text] drawTextCode text="${code.text}" startPos=(${x},${y}) chars=${chars.length} fill=${fill} stroke=${stroke}`);
 
     for (let i: number = 0; i < chars.length; i++) {
       if (i > 0) {
