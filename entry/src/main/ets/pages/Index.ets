@@ -14,36 +14,37 @@ struct Index {
   @State showPreview: boolean = false;
 
   build() {
-    Column({ space: 16 }) {
-      // 功能开头：页面只负责选择文件和展示基础解析结果，SDK 逻辑放在 ofdkit 目录。
-      // 阶段三扩展：添加 Canvas 渲染预览功能。
-      Button('选择 OFD 文件')
-        .onClick(() => {
-          this.pickOFDFile();
-        })
+    Scroll() {
+      Column({ space: 16 }) {
+        Button('选择 OFD 文件')
+          .onClick(() => {
+            this.pickOFDFile();
+          })
 
-      Text(this.message)
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
+        Text(this.message)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
 
-      if (this.errorMessage.length > 0) {
-        Text(this.errorMessage)
-          .fontSize(14)
-          .fontColor(Color.Red)
+        if (this.errorMessage.length > 0) {
+          Text(this.errorMessage)
+            .fontSize(14)
+            .fontColor(Color.Red)
+        }
+
+        if (this.documentInfo !== undefined) {
+          this.renderDocumentInfo()
+        }
+
+        if (this.showPreview && this.documentInfo !== undefined) {
+          this.renderPagePreview()
+        }
       }
-
-      if (this.documentInfo !== undefined) {
-        this.renderDocumentInfo()
-      }
-
-      if (this.showPreview && this.documentInfo !== undefined) {
-        this.renderPagePreview()
-      }
+      .width('100%')
+      .padding(24)
+      .alignItems(HorizontalAlign.Start)
     }
-    .height('100%')
     .width('100%')
-    .padding(24)
-    .alignItems(HorizontalAlign.Start)
+    .height('100%')
   }
 
   @Builder
