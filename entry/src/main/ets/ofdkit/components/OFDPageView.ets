@@ -2,7 +2,6 @@
 // Canvas 自适应父容器宽度，高度按 PhysicalBox 比例自动计算。
 // 切换 @Prop page 时：预加载本页字体（注册到系统）+ 解码本页图片到 PixelMap，准备好后再渲染。
 
-import { font } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import {
   OFDPage,
@@ -41,7 +40,7 @@ export struct OFDPageView {
     Column() {
       Canvas(this.context)
         .width('100%')
-        .aspectRatio(this.aspectRatio())
+        .aspectRatio(this.pageAspect())
         .backgroundColor('#FFFFFF')
         .onReady(() => {
           this.canvasReady = true;
@@ -52,7 +51,7 @@ export struct OFDPageView {
     .alignItems(HorizontalAlign.Center)
   }
 
-  private aspectRatio(): number {
+  private pageAspect(): number {
     const w: number = this.page.physicalBox.width;
     const h: number = this.page.physicalBox.height;
     if (w <= 0 || h <= 0) {
@@ -127,7 +126,7 @@ export struct OFDPageView {
     const family: string = `OFD_${fontId}`;
     if (!registeredFontFamilies.has(family)) {
       try {
-        font.registerFont({ familyName: family, familySrc: fontDef.fontFile });
+        this.getUIContext().getFont().registerFont({ familyName: family, familySrc: fontDef.fontFile });
         registeredFontFamilies.add(family);
       } catch (error) {
         console.warn(`[ofdkit] 字体 ${fontDef.fontName} 注册失败：${error}`);
