@@ -16,6 +16,7 @@ import { XmlNode, XmlParser } from '../../utils/XmlParser';
 import { ParseHelpers } from '../ParseHelpers';
 
 // 签章 payload：渲染器 cast `obj.payload as SignaturePayload` 后读取。
+// signatureXmlPath / extractDir 给 Pro 验签使用：解析 SignedInfo/References + 读各被签名文件做 SM3 比对。
 export interface SignaturePayload {
   signatureId: string;
   stampId: string;
@@ -24,20 +25,32 @@ export interface SignaturePayload {
   providerCompany?: string;
   providerName?: string;
   signedValuePath?: string;
+  signatureXmlPath?: string;
+  extractDir?: string;
 }
 
 export class SignatureExtension implements DocumentExtension {
   readonly name: string = 'signatures';
 
   async apply(context: DocumentExtensionContext): Promise<void> {
+    let sigsXmlPath: string | undefined = undefined;
     const sigsLoc: string | undefined = XmlParser.childText(context.documentNode, 'Signatures');
-    if (sigsLoc === undefined || sigsLoc.length === 0) {
+    if (sigsLoc !== undefined && sigsLoc.length > 0) {
+      sigsXmlPath = this.resolveRef(context, context.docBaseDir, sigsLoc);
+    } else {
+      // 规范允许省略 <Document/Signatures>。按约定退而求其次找 ${docBaseDir}/Signs/Signatures.xml。
+      const fallback: string = context.fileAdapter.joinPath(
+        context.extractDir,
+        context.fileAdapter.joinPath(context.docBaseDir, 'Signs/Signatures.xml')
+      );
+      const fbExists: boolean = await context.fileAdapter.exists(fallback);
+      if (fbExists) {
+        sigsXmlPath = fallback;
+      }
+    }
+    if (sigsXmlPath === undefined) {
       return;
     }
-    const sigsXmlPath: string = context.fileAdapter.joinPath(
-      context.extractDir,
-      context.fileAdapter.joinPath(context.docBaseDir, sigsLoc)
-    );
     const exists: boolean = await context.fileAdapter.exists(sigsXmlPath);
     if (!exists) {
       console.warn(`[ofdkit] Signatures 索引文件不存在：${sigsXmlPath}`);
@@ -60,6 +73,14 @@ export class SignatureExtension implements DocumentExtension {
     }
   }
 
+  // OFD 引用路径：以 '/' 开头表示相对包根（extractDir），否则相对 currentDir。
+  private resolveRef(context: DocumentExtensionContext, currentDir: string, ref: string): string {
+    if (ref.startsWith('/')) {
+      return context.fileAdapter.joinPath(context.extractDir, ref);
+    }
+    return context.fileAdapter.joinPath(currentDir, ref);
+  }
+
   private async loadSignature(
     context: DocumentExtensionContext,
     sigsBaseDir: string,
@@ -67,7 +88,7 @@ export class SignatureExtension implements DocumentExtension {
     type: string,
     baseLoc: string
   ): Promise<void> {
-    const sigXmlPath: string = context.fileAdapter.joinPath(sigsBaseDir, baseLoc);
+    const sigXmlPath: string = this.resolveRef(context, sigsBaseDir, baseLoc);
     const exists: boolean = await context.fileAdapter.exists(sigXmlPath);
     if (!exists) {
       console.warn(`[ofdkit] Signature 文件不存在：${sigXmlPath}`);
@@ -84,7 +105,7 @@ export class SignatureExtension implements DocumentExtension {
     const dateTime: string | undefined = XmlParser.childText(signedInfo, 'SignatureDateTime');
     const signedValueRel: string | undefined = XmlParser.childText(sigNode, 'SignedValue');
     const signedValuePath: string | undefined = signedValueRel !== undefined
-      ? context.fileAdapter.joinPath(sigBaseDir, signedValueRel)
+      ? this.resolveRef(context, sigBaseDir, signedValueRel)
       : undefined;
 
     XmlParser.findChildren(signedInfo, 'StampAnnot').forEach((stamp: XmlNode) => {
@@ -113,7 +134,9 @@ export class SignatureExtension implements DocumentExtension {
         dateTime,
         providerCompany: providerNode !== undefined ? XmlParser.attr(providerNode, 'Company') : undefined,
         providerName: providerNode !== undefined ? XmlParser.attr(providerNode, 'ProviderName') : undefined,
-        signedValuePath
+        signedValuePath,
+        signatureXmlPath: sigXmlPath,
+        extractDir: context.extractDir
       };
       const obj: CustomPageObject = {
         type: 'custom',
