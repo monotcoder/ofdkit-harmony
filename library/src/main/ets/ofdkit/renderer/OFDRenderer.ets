@@ -17,6 +17,7 @@ import {
   CTM,
   Color,
   OFDResources,
+  OFDFont,
   OFDDrawParam
 } from '../parser/types';
 import { ResourceParser } from '../parser/ResourceParser';
@@ -189,17 +190,25 @@ export class OFDRenderer {
     let cy: number = y;
     for (let i: number = 0; i < chars.length; i++) {
       if (i > 0) {
-        if (code.deltaX !== undefined && i - 1 < code.deltaX.length) {
-          // 防叠字：OFD 嵌入子集字体的 ASCII 半角度量在 Canvas 里有时不生效，按 DeltaX 推进时字母相互覆盖。
+        if (code.deltaX !== undefined && code.deltaX.length > 0) {
+          // OFD 规范：DeltaX 数组比字符数少时，最后一个值要重复用（很多发票的标题就一个 DeltaX 覆盖全部字间距）。
+          // 防叠字：嵌入子集字体的 ASCII 半角度量在 Canvas 里有时不生效，按 DeltaX 推进时字母相互覆盖。
           // 用自然字形宽度兜底，但留 10% 容差——measureText 对 CJK 字符通常会比真实 1em 略高 ~6%，
           // 不加容差会让整段中文 label 累计撑开 1-2mm，反而撞进相邻字段。
           // HarmonyOS Canvas 在 ctx.scale 之后，measureText 返回的就是用户坐标系（mm）宽度，无需再换算。
-          const requestedDx: number = code.deltaX[i - 1];
-          const naturalMm: number = ctx.measureText(chars[i - 1]).width;
-          cx = cx + (naturalMm > requestedDx * 1.1 ? naturalMm : requestedDx);
+          const dxIdx: number = i - 1 < code.deltaX.length ? i - 1 : code.deltaX.length - 1;
+          const requestedDx: number = code.deltaX[dxIdx];
+          // 仅在正 DeltaX 时考虑自然宽度兜底。负 DeltaX（密码区那种"换行回到行首"的 -67.5）是显式位置控制，必须原样推进。
+          if (requestedDx > 0) {
+            const naturalMm: number = ctx.measureText(chars[i - 1]).width;
+            cx = cx + (naturalMm > requestedDx * 1.1 ? naturalMm : requestedDx);
+          } else {
+            cx = cx + requestedDx;
+          }
         }
-        if (code.deltaY !== undefined && i - 1 < code.deltaY.length) {
-          cy = cy + code.deltaY[i - 1];
+        if (code.deltaY !== undefined && code.deltaY.length > 0) {
+          const dyIdx: number = i - 1 < code.deltaY.length ? i - 1 : code.deltaY.length - 1;
+          cy = cy + code.deltaY[dyIdx];
         }
       }
       if (fill) {
@@ -328,7 +337,21 @@ export class OFDRenderer {
     if (registered !== undefined) {
       return `"${registered}", sans-serif`;
     }
-    return 'sans-serif';
+    // 未嵌入 FontFile 时，把 OFD 标注的 FamilyName/FontName 也加进 fallback 链。
+    // HarmonyOS 自带宋体/楷体/Courier New 等通用字体的话，Canvas 可以择优匹配，避免全退到 sans-serif 引起字距错位。
+    const fontDef: OFDFont | undefined = this.renderResources?.resources.fonts.get(fontId);
+    if (fontDef === undefined) {
+      return 'sans-serif';
+    }
+    const names: string[] = [];
+    if (fontDef.familyName !== undefined && fontDef.familyName.length > 0) {
+      names.push(`"${fontDef.familyName}"`);
+    }
+    if (fontDef.fontName.length > 0 && fontDef.fontName !== fontDef.familyName) {
+      names.push(`"${fontDef.fontName}"`);
+    }
+    names.push('sans-serif');
+    return names.join(', ');
   }
 }
 
