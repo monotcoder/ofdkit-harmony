@@ -140,13 +140,16 @@ export class OFDParser {
         continue;
       }
       const tplPath: string = this.fileAdapter.joinPath(extractDir, this.fileAdapter.joinPath(docBaseDir, baseLoc));
-      const exists: boolean = await this.fileAdapter.exists(tplPath);
-      if (!exists) {
+      const actualPath: string | undefined = await this.fileAdapter.resolveCaseInsensitive(tplPath);
+      if (actualPath === undefined) {
         console.warn(`[ofdkit] 模板页文件不存在：${tplPath}`);
         continue;
       }
+      if (actualPath !== tplPath) {
+        console.info(`[ofdkit] 模板路径大小写矫正：${tplPath} → ${actualPath}`);
+      }
       try {
-        const tplXml: string = await this.fileAdapter.readText(tplPath);
+        const tplXml: string = await this.fileAdapter.readText(actualPath);
         const parsed: ParsedPage = this.contentParser.parsePage(tplXml);
         templates.set(id, parsed.content.layers);
       } catch (error) {
@@ -237,14 +240,14 @@ export class OFDParser {
       const rel: string = refs[i];
       const relativeToRoot: string = this.fileAdapter.joinPath(docBaseDir, rel);
       const resXmlPath: string = this.fileAdapter.joinPath(extractDir, relativeToRoot);
-      const exists: boolean = await this.fileAdapter.exists(resXmlPath);
-      if (!exists) {
+      const actualPath: string | undefined = await this.fileAdapter.resolveCaseInsensitive(resXmlPath);
+      if (actualPath === undefined) {
         console.warn(`[ofdkit] 资源文件不存在：${resXmlPath}`);
         continue;
       }
       try {
-        const resXml: string = await this.fileAdapter.readText(resXmlPath);
-        const resXmlDir: string = this.parentDir(resXmlPath);
+        const resXml: string = await this.fileAdapter.readText(actualPath);
+        const resXmlDir: string = this.parentDir(actualPath);
         const parsed: OFDResources = ResourceParser.parse(resXml, resXmlDir, this.fileAdapter);
         ResourceParser.merge(merged, parsed);
       } catch (error) {

@@ -68,4 +68,38 @@ export class FileUtils implements OFDFileAdapter {
     const normalizedChild: string = childPath.startsWith('/') ? childPath.substring(1) : childPath;
     return `${normalizedBase}/${normalizedChild}`;
   }
+
+  // 大小写不敏感查找：递归从最长存在的祖先开始，向下逐段在目录列表里找大小写不一致但语义相同的条目。
+  // 不存在则返回 undefined。直接命中时不递归，开销近似 exists()。
+  async resolveCaseInsensitive(path: string): Promise<string | undefined> {
+    if (await this.exists(path)) {
+      return path;
+    }
+    const slashIdx: number = path.lastIndexOf('/');
+    if (slashIdx <= 0) {
+      return undefined;
+    }
+    const parent: string = path.substring(0, slashIdx);
+    const last: string = path.substring(slashIdx + 1);
+    if (last.length === 0) {
+      return undefined;
+    }
+    const resolvedParent: string | undefined = await this.resolveCaseInsensitive(parent);
+    if (resolvedParent === undefined) {
+      return undefined;
+    }
+    let entries: string[];
+    try {
+      entries = await fileIo.listFile(resolvedParent);
+    } catch (error) {
+      return undefined;
+    }
+    const lastLower: string = last.toLowerCase();
+    for (let i: number = 0; i < entries.length; i++) {
+      if (entries[i].toLowerCase() === lastLower) {
+        return this.joinPath(resolvedParent, entries[i]);
+      }
+    }
+    return undefined;
+  }
 }

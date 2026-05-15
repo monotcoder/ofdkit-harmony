@@ -55,6 +55,9 @@ export interface OFDFileAdapter {
   exists(path: string): Promise<boolean>;
   readText(path: string): Promise<string>;
   joinPath(basePath: string, childPath: string): string;
+  // path 直接不存在时，逐段大小写不敏感地查找语义相同的真实路径。
+  // 用于兼容 OFD 自己写错大小写（如 TPLS vs Tpls）的样本，HarmonyOS 文件系统大小写敏感。
+  resolveCaseInsensitive(path: string): Promise<string | undefined>;
 }
 
 export interface OFDZipAdapter {
