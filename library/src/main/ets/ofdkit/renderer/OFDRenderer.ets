@@ -190,7 +190,11 @@ export class OFDRenderer {
     for (let i: number = 0; i < chars.length; i++) {
       if (i > 0) {
         if (code.deltaX !== undefined && i - 1 < code.deltaX.length) {
-          cx = cx + code.deltaX[i - 1];
+          // 防叠字：OFD 嵌入子集字体的 ASCII 半角度量在 Canvas 里有时不生效，导致按 DeltaX 推进时字母相互覆盖。
+          // 用 max(DeltaX, 上一字符的自然字形宽度) 兜底——数字仍走 DeltaX 间距，字母按自然宽度避免重叠。
+          // measureText 返回的是 px（不跟 ctx.scale 变），需要除以 pxPerMm 换算到 mm 坐标系。
+          const naturalMm: number = ctx.measureText(chars[i - 1]).width / this.pxPerMm;
+          cx = cx + Math.max(code.deltaX[i - 1], naturalMm);
         }
         if (code.deltaY !== undefined && i - 1 < code.deltaY.length) {
           cy = cy + code.deltaY[i - 1];
