@@ -165,7 +165,12 @@ export struct OFDPageView {
 
   private registerFontIfNeeded(fontId: string): void {
     const fontDef: OFDFont | undefined = this.page.resources?.fonts.get(fontId);
-    if (fontDef === undefined || fontDef.fontFile === undefined) {
+    if (fontDef === undefined) {
+      console.info(`[ofdkit] 字体 ${fontId} 未在 Res 中定义，将退回 sans-serif`);
+      return;
+    }
+    if (fontDef.fontFile === undefined) {
+      console.info(`[ofdkit] 字体 ${fontId}(${fontDef.fontName}) 无嵌入 FontFile，将退回 sans-serif`);
       return;
     }
     const family: string = `OFD_${fontId}`;
@@ -173,8 +178,10 @@ export struct OFDPageView {
       try {
         this.getUIContext().getFont().registerFont({ familyName: family, familySrc: fontDef.fontFile });
         registeredFontFamilies.add(family);
+        console.info(`[ofdkit] 字体注册成功：${family} ← ${fontDef.fontFile}`);
       } catch (error) {
-        console.warn(`[ofdkit] 字体 ${fontDef.fontName} 注册失败：${error}`);
+        const msg: string = error instanceof Error ? error.message : String(error);
+        console.warn(`[ofdkit] 字体注册失败 ${family} src=${fontDef.fontFile}：${msg}`);
         return;
       }
     }

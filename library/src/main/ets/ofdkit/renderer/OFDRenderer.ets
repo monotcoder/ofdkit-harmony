@@ -88,20 +88,21 @@ export class OFDRenderer {
   }
 
   private renderLayer(layer: Layer, ctx: CanvasRenderingContext2D): void {
-    layer.objects.forEach((obj: PageObject) => this.renderObject(obj, ctx));
+    // Layer.DrawParam 作为层级默认值传给子对象。OFD 标准里发票常把整层颜色挂 Layer 上，子对象省略。
+    layer.objects.forEach((obj: PageObject) => this.renderObject(obj, ctx, layer.drawParam));
   }
 
-  private renderObject(obj: PageObject, ctx: CanvasRenderingContext2D): void {
+  private renderObject(obj: PageObject, ctx: CanvasRenderingContext2D, layerDrawParam?: string): void {
     ctx.save();
     try {
       if (obj.type === 'text') {
-        this.renderText(obj as TextObject, ctx);
+        this.renderText(obj as TextObject, ctx, layerDrawParam);
       } else if (obj.type === 'path') {
-        this.renderPath(obj as PathObject, ctx);
+        this.renderPath(obj as PathObject, ctx, layerDrawParam);
       } else if (obj.type === 'image') {
         this.renderImage(obj as ImageObject, ctx);
       } else if (obj.type === 'block') {
-        this.renderBlock(obj as CompositeBlock, ctx);
+        this.renderBlock(obj as CompositeBlock, ctx, layerDrawParam);
       } else if (obj.type === 'custom') {
         this.renderCustom(obj as CustomPageObject, ctx);
       }
@@ -135,7 +136,7 @@ export class OFDRenderer {
     };
   }
 
-  private renderText(obj: TextObject, ctx: CanvasRenderingContext2D): void {
+  private renderText(obj: TextObject, ctx: CanvasRenderingContext2D, layerDrawParam?: string): void {
     ctx.translate(obj.boundary.x, obj.boundary.y);
     if (obj.ctm !== undefined) {
       this.applyCTM(obj.ctm, ctx);
@@ -144,7 +145,7 @@ export class OFDRenderer {
       ctx.scale(obj.hScale, 1);
     }
 
-    const dp: OFDDrawParam | undefined = this.resolveDrawParam(obj.drawParam);
+    const dp: OFDDrawParam | undefined = this.resolveDrawParam(obj.drawParam ?? layerDrawParam);
     const fillColor: Color | undefined = obj.fillColor ?? dp?.fillColor;
     const strokeColor: Color | undefined = obj.strokeColor ?? dp?.strokeColor;
     const family: string = this.fontFamilyFor(obj.font);
@@ -204,7 +205,7 @@ export class OFDRenderer {
     }
   }
 
-  private renderPath(obj: PathObject, ctx: CanvasRenderingContext2D): void {
+  private renderPath(obj: PathObject, ctx: CanvasRenderingContext2D, layerDrawParam?: string): void {
     ctx.translate(obj.boundary.x, obj.boundary.y);
     if (obj.ctm !== undefined) {
       this.applyCTM(obj.ctm, ctx);
@@ -215,7 +216,7 @@ export class OFDRenderer {
       return;
     }
 
-    const dp: OFDDrawParam | undefined = this.resolveDrawParam(obj.drawParam);
+    const dp: OFDDrawParam | undefined = this.resolveDrawParam(obj.drawParam ?? layerDrawParam);
     const stroke: boolean = obj.stroke !== false;
     const fill: boolean = obj.fill === true;
     const lineWidth: number = obj.lineWidth ?? dp?.lineWidth ?? 0.353;
@@ -293,14 +294,16 @@ export class OFDRenderer {
     ctx.fillText(isError ? '图片缺失' : '图片', width / 2, height / 2);
   }
 
-  private renderBlock(obj: CompositeBlock, ctx: CanvasRenderingContext2D): void {
+  private renderBlock(obj: CompositeBlock, ctx: CanvasRenderingContext2D, layerDrawParam?: string): void {
     if (obj.boundary !== undefined) {
       ctx.translate(obj.boundary.x, obj.boundary.y);
     }
     if (obj.ctm !== undefined) {
       this.applyCTM(obj.ctm, ctx);
     }
-    obj.children.forEach((child: PageObject) => this.renderObject(child, ctx));
+    // PageBlock 自身的 DrawParam 优先于上层 Layer
+    const inherited: string | undefined = obj.drawParam ?? layerDrawParam;
+    obj.children.forEach((child: PageObject) => this.renderObject(child, ctx, inherited));
   }
 
   private applyCTM(ctm: CTM, ctx: CanvasRenderingContext2D): void {
