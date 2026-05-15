@@ -1,6 +1,7 @@
 // OFD 单页 Canvas 渲染组件。
 // Canvas 自适应父容器宽度，高度按 PhysicalBox 比例自动计算。
 // 切换 @Prop page 时：预加载本页字体（注册到系统）+ 解码本页图片到 PixelMap，准备好后再渲染。
+// 手势：双指捏合缩放（0.5x~5x）、单指拖动平移、双击复位。视觉级 transform，不重渲染 Canvas。
 
 import { image } from '@kit.ImageKit';
 import {
@@ -16,10 +17,18 @@ import {
 import { OFDRenderer, RenderResources } from '../renderer/OFDRenderer';
 
 const registeredFontFamilies: Set<string> = new Set<string>();
+const MIN_SCALE: number = 0.5;
+const MAX_SCALE: number = 5.0;
 
 @Component
 export struct OFDPageView {
   @Prop @Watch('onPageChanged') page: OFDPage;
+  @State private scaleVal: number = 1.0;
+  @State private offsetX: number = 0;
+  @State private offsetY: number = 0;
+  private baseScale: number = 1.0;
+  private baseOffsetX: number = 0;
+  private baseOffsetY: number = 0;
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private renderer: OFDRenderer = new OFDRenderer();
@@ -37,18 +46,54 @@ export struct OFDPageView {
   }
 
   build() {
-    Column() {
+    Stack() {
       Canvas(this.context)
         .width('100%')
         .aspectRatio(this.pageAspect())
         .backgroundColor('#FFFFFF')
+        .scale({ x: this.scaleVal, y: this.scaleVal })
+        .translate({ x: this.offsetX, y: this.offsetY })
         .onReady(() => {
           this.canvasReady = true;
           this.renderIfReady();
         })
     }
     .width('100%')
-    .alignItems(HorizontalAlign.Center)
+    .clip(true)
+    .alignContent(Alignment.Center)
+    .gesture(
+      GestureGroup(GestureMode.Parallel,
+        PinchGesture({ fingers: 2 })
+          .onActionStart(() => {
+            this.baseScale = this.scaleVal;
+          })
+          .onActionUpdate((event: GestureEvent) => {
+            const target: number = this.baseScale * event.scale;
+            this.scaleVal = Math.max(MIN_SCALE, Math.min(MAX_SCALE, target));
+          }),
+        PanGesture()
+          .onActionStart(() => {
+            this.baseOffsetX = this.offsetX;
+            this.baseOffsetY = this.offsetY;
+          })
+          .onActionUpdate((event: GestureEvent) => {
+            this.offsetX = this.baseOffsetX + event.offsetX;
+            this.offsetY = this.baseOffsetY + event.offsetY;
+          }),
+        TapGesture({ count: 2 })
+          .onAction(() => {
+            this.resetTransform();
+          })
+      )
+    )
+  }
+
+  private resetTransform(): void {
+    this.getUIContext().animateTo({ duration: 250, curve: Curve.EaseInOut }, () => {
+      this.scaleVal = 1.0;
+      this.offsetX = 0;
+      this.offsetY = 0;
+    });
   }
 
   private pageAspect(): number {
