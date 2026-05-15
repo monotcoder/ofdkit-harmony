@@ -243,7 +243,9 @@ export class OFDRenderer {
     ctx.beginPath();
     PathDataParser.run(data, ctx);
 
-    if (fill) {
+    // Fill="true" 但未指定 FillColor 时，按主流阅读器（数科/福昕）的实际行为跳过填充。
+    // 否则发票防伪暗记（圆+X）等只描边的 icon 会被涂成实心盘，遮住描边内容。
+    if (fill && fillColor !== undefined) {
       ctx.fillStyle = colorToCss(fillColor, '#000000');
       ctx.fill();
     }
