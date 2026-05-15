@@ -35,4 +35,16 @@
 - **字体加载：通过 font.registerFont 注册 OFD 嵌入字体到系统。**
 - **图片加载：使用 image.createImageSource 解码到 PixelMap，Canvas 真实绘制。**
 - **DrawParam 应用：支持 Relative 继承链合并（含循环引用保护）。**
+- **实现阶段五：扩展点系统 + Library 抽离。**
+- **三类扩展点：对象解析（ObjectParserExt）、对象渲染（ObjectRendererExt + RenderContext）、文档级（DocumentExtension）。**
+- **CustomPageObject 类型对扩展开放，类型 union 加 'custom' 分支。**
+- **AnnotationExtension：加载 Annots.xml，把 Annot.Appearance 转成 Layer 追加。**
+- **TemplatePage 模板页继承：支持 ZOrder Background/Foreground，模板内容合并到主页 layer 列表。**
+- **SignatureExtension + SignaturePlaceholderRenderer：解析 StampAnnot 占位，红虚线框 + "需 Pro 验签"。**
+- **installDefaultExtensions：一键安装开源版默认扩展。**
+- **ohpm Library 抽离：ofdkit 代码从 entry 移到独立 library 模块，name=ofdkit-harmony。**
+- **手势：双指捏合缩放（0.5x ~ 5x）、单指拖动平移、双击复位（视觉级 transform）。**
+- 修复 ctx.font 在 HarmonyOS Canvas 中不跟随 ctx.scale 变换的差异（字号单独乘 pxPerMm）。
+- 修复 drawTextCode 在无 DeltaX/DeltaY 时所有字符叠在同一像素（改为整段 fillText）。
+- 修复 Canvas 大小问题，统一改用 width('100%') + aspectRatio 自适应父容器。
 

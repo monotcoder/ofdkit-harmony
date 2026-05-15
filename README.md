@@ -14,7 +14,7 @@ GitHub 仓库仅作为镜像同步使用。Issue、Pull Request 和功能讨论�
 
 ## 当前阶段
 
-阶段四：字体、图片和资源管理。
+阶段五：扩展点系统 + Library 抽离。
 
 当前已完成：
 
@@ -27,18 +27,25 @@ GitHub 仓库仅作为镜像同步使用。Issue、Pull Request 和功能讨论�
 - Canvas 页面渲染（按文档绘制顺序保留 z-order）
 - 文字对象渲染（支持 DeltaX/DeltaY 逐字定位、HScale、italic/weight）
 - 路径对象渲染（支持 S/M/L/Q/B/C 命令，A 暂占位）
-- **解析 PublicRes / DocumentRes 资源索引**
-- **字体加载：注册 OFD 嵌入字体到系统**
-- **图片资源加载：解码到 PixelMap 并真实绘制**
-- **DrawParam 绘制参数应用（含 Relative 继承链）**
+- 解析 PublicRes / DocumentRes 资源索引
+- 字体加载：注册 OFD 嵌入字体到系统
+- 图片资源加载：解码到 PixelMap 并真实绘制
+- DrawParam 绘制参数应用（含 Relative 继承链）
+- **Annotations 注释加载与渲染**
+- **TemplatePage 模板页继承（Background / Foreground）**
+- **Signatures 签章占位（解析 StampAnnot，红色虚线框 + "需 Pro 验签"）**
+- **扩展点系统**：自定义对象解析 / 渲染 / 文档级扩展（见 [EXTENSIONS.md](./EXTENSIONS.md)）
+- **ohpm Library 抽离**：发布为独立 `ofdkit-harmony` 包
+- 手势：双指捏合缩放、单指拖动平移、双击复位
 - 页面预览和切换功能
 
 暂未实现：
 
-- 签章（CT_Signatures）与国密验签
-- ColorSpace、Annotations、Template Pages
+- 签章国密验签（SM2/SM3）与真实印章图像绘制 — 留给 Pro 商业版
+- OFD ↔ PDF 转换 — 留给 Pro 商业版
+- ColorSpace（CMYK / Pattern / Gradient）
 - 圆弧命令 A 的完整支持
-- ohpm Library 抽离
+- 表单填充（CT_FormFile）
 
 ## 环境要求
 
@@ -50,61 +57,81 @@ GitHub 仓库仅作为镜像同步使用。Issue、Pull Request 和功能讨论�
 ## 项目结构
 
 ```text
-entry/src/main/ets/
-├── pages/
-│   └── Index.ets
-└── ofdkit/
-    ├── parser/
-    │   ├── OFDParser.ets
-    │   ├── DocumentParser.ets
-    │   ├── ContentParser.ets
-    │   ├── ResourceParser.ets
-    │   ├── ParseHelpers.ets
-    │   └── types.ets
-    ├── renderer/
-    │   └── OFDRenderer.ets
-    ├── components/
-    │   └── OFDPageView.ets
-    ├── utils/
-    │   ├── XmlParser.ets
-    │   ├── FileUtils.ets
-    │   └── ZipUtils.ets
-    └── index.ets
+ofdkit-harmony/
+├── entry/                     # 示例应用（演示 picker + 渲染 + 手势）
+│   └── src/main/ets/
+│       ├── pages/Index.ets
+│       └── entryability/
+└── library/                   # 发布的 ohpm 包，name = ofdkit-harmony
+    ├── oh-package.json5
+    ├── Index.ets              # 公共导出入口
+    └── src/main/ets/ofdkit/
+        ├── parser/
+        │   ├── OFDParser.ets
+        │   ├── DocumentParser.ets
+        │   ├── ContentParser.ets
+        │   ├── ResourceParser.ets
+        │   ├── ParseHelpers.ets
+        │   ├── types.ets
+        │   └── extensions/    # 内置文档级扩展（Annotations / Signatures）
+        ├── renderer/
+        │   ├── OFDRenderer.ets
+        │   └── extensions/    # 内置占位渲染器
+        ├── components/
+        │   └── OFDPageView.ets
+        ├── utils/
+        │   ├── XmlParser.ets
+        │   ├── FileUtils.ets
+        │   └── ZipUtils.ets
+        ├── defaults.ets       # installDefaultExtensions
+        └── index.ets
 ```
 
 ## 使用示例
 
 ```typescript
-import { OFDParser, OFDRenderer } from './ofdkit';
+import {
+  OFDParser,
+  OFDDocument,
+  OFDPageView,
+  installDefaultExtensions
+} from 'ofdkit-harmony';
 
-const parser = new OFDParser();
-const document = await parser.parse('/path/to/file.ofd');
-console.info(`总页数：${document.pages.length}`);
+// 1. 应用启动时安装默认扩展（注释、签章占位等）
+installDefaultExtensions();
 
-// 访问页面内容
-document.pages.forEach(page => {
-  console.info(`第 ${page.pageIndex + 1} 页`);
-  page.content?.layers.forEach(layer => {
-    console.info(`  图层包含 ${layer.objects.length} 个对象`);
-    layer.objects.forEach(obj => {
-      console.info(`    - ${obj.type} 对象 ID: ${obj.id}`);
-    });
-  });
-});
+// 2. 解析 OFD
+const parser = new OFDParser({ workDir: '/path/to/cache' });
+const doc: OFDDocument = await parser.parse('/path/to/file.ofd');
+console.info(`总页数：${doc.pages.length}`);
 
-// 渲染页面到 Canvas
-const renderer = new OFDRenderer(2.0); // 2倍缩放
-const context = new CanvasRenderingContext2D(settings);
-renderer.renderPage(document.pages[0], context);
+// 3. 渲染（在 ArkUI Component 中）
+//    OFDPageView 组件已封装 Canvas + 资源预加载 + 手势
+@Component
+struct Reader {
+  @State pageIndex: number = 0;
+  @State doc: OFDDocument = ...;
+
+  build() {
+    OFDPageView({ page: this.doc.pages[this.pageIndex] })
+  }
+}
 ```
+
+## 扩展开发
+
+如果你要接入自定义对象类型（如水印）、自定义渲染器（如真实签章绘制）或自定义文档级资源（如自定义表单），请参考 [EXTENSIONS.md](./EXTENSIONS.md)。
+
+商业版 [`ofdkit-harmony-pro`](./PRO.md)（计划中）通过同一套扩展点接入国密验签、OFD↔PDF 转换等高级功能。
 
 ## 开发计划
 
-- 阶段一：解析 OFD 文件结构
-- 阶段二：解析页面内容对象
-- 阶段三：Canvas 页面渲染
-- 阶段四：字体、图片和资源管理
-- 阶段五：封装 Library 并发布 ohpm
+- 阶段一：解析 OFD 文件结构 ✅
+- 阶段二：解析页面内容对象 ✅
+- 阶段三：Canvas 页面渲染 ✅
+- 阶段四：字体、图片和资源管理 ✅
+- 阶段五：扩展点系统 + ohpm Library 抽离 ✅
+- 阶段六：商业版 `ofdkit-harmony-pro`（签章国密验签 / OFD↔PDF / 表单）
 
 ## 贡献
 
