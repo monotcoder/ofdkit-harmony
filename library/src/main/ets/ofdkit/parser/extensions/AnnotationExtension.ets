@@ -9,8 +9,9 @@
 
 import { DocumentExtension, DocumentExtensionContext } from '../OFDParser';
 import { ContentParser } from '../ContentParser';
-import { Layer, OFDPage, PageObject } from '../types';
+import { CompositeBlock, Layer, OFDPage, PageBox, PageObject } from '../types';
 import { XmlNode, XmlParser } from '../../utils/XmlParser';
+import { ParseHelpers } from '../ParseHelpers';
 
 export class AnnotationExtension implements DocumentExtension {
   readonly name: string = 'annotations';
@@ -78,7 +79,19 @@ export class AnnotationExtension implements DocumentExtension {
       if (appearance === undefined) {
         return;
       }
-      this.contentParser.parseObjects(appearance).forEach((obj: PageObject) => objects.push(obj));
+      const inner: PageObject[] = this.contentParser.parseObjects(appearance);
+      if (inner.length === 0) {
+        return;
+      }
+      // <Appearance Boundary="x y w h"> 是注释在页面坐标系的位置；内部对象 Boundary 是相对 Appearance 原点的局部坐标。
+      // 包成 CompositeBlock 让渲染器 translate 到正确位置，否则印章/水印会塌到 (0,0)。
+      const boundary: PageBox | undefined = ParseHelpers.optionalBox(XmlParser.attr(appearance, 'Boundary'));
+      if (boundary !== undefined) {
+        const block: CompositeBlock = { type: 'block', boundary, children: inner };
+        objects.push(block);
+      } else {
+        inner.forEach((obj: PageObject) => objects.push(obj));
+      }
     });
 
     if (objects.length === 0) {
