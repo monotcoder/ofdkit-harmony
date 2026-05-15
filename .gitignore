@@ -1,5 +1,6 @@
 /node_modules
 /oh_modules
+**/oh_modules
 /local.properties
 /.idea
 **/build
@@ -10,3 +11,7 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+.DS_Store
+**/.DS_Store
+**/BuildProfile.ets
+/.claude/settings.local.json
