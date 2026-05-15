@@ -9,6 +9,7 @@ import {
   PathObject,
   ImageObject,
   CompositeBlock,
+  CustomPageObject,
   TextCode,
   PageBox,
   ParsedPage
@@ -16,7 +17,25 @@ import {
 import { XmlNode, XmlParser } from '../utils/XmlParser';
 import { ParseHelpers } from './ParseHelpers';
 
+// 对象解析扩展点：第三方按 XML 标签名注册，命中时调 parse 转成 CustomPageObject。
+// 用于：开源版接入 Annotations，Pro 版接入 Signatures/FormFields 等。
+export interface ObjectParserExt {
+  customType: string;
+  nodeNames: string[];
+  parse(node: XmlNode): CustomPageObject | undefined;
+}
+
 export class ContentParser {
+  private static customParsers: Map<string, ObjectParserExt> = new Map<string, ObjectParserExt>();
+
+  static registerObjectParser(ext: ObjectParserExt): void {
+    ext.nodeNames.forEach((name: string) => ContentParser.customParsers.set(name, ext));
+  }
+
+  static clearObjectParsers(): void {
+    ContentParser.customParsers.clear();
+  }
+
   parsePage(contentXml: string): ParsedPage {
     const pageNode: XmlNode = XmlParser.parse(contentXml);
     if (pageNode.name !== 'Page') {
@@ -86,8 +105,18 @@ export class ContentParser {
         return this.parseImageObject(node);
       case 'PageBlock':
         return this.parsePageBlock(node);
-      default:
-        return undefined;
+      default: {
+        const ext: ObjectParserExt | undefined = ContentParser.customParsers.get(node.name);
+        if (ext === undefined) {
+          return undefined;
+        }
+        try {
+          return ext.parse(node);
+        } catch (error) {
+          console.warn(`[ofdkit] 扩展解析 <${node.name}> 失败：${error}`);
+          return undefined;
+        }
+      }
     }
   }
 
