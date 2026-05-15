@@ -12,6 +12,7 @@ import {
   PathObject,
   ImageObject,
   CompositeBlock,
+  CustomPageObject,
   TextCode,
   CTM,
   Color,
@@ -26,7 +27,32 @@ export interface RenderResources {
   fontFamilies: Map<string, string>;
 }
 
+// 传给自定义渲染扩展的上下文：包含当前 px/mm 比例、资源索引、已加载的字体/图片。
+export interface RenderContext {
+  pxPerMm: number;
+  resources: OFDResources | undefined;
+  pixelMaps: Map<string, image.PixelMap>;
+  fontFamilies: Map<string, string>;
+}
+
+// 对象渲染扩展点：按 customType 注册，渲染 CustomPageObject。
+// 调用前框架已 translate 到 boundary 原点并应用 CTM，扩展直接用对象局部坐标 (mm) 绘制即可。
+export interface ObjectRendererExt {
+  customType: string;
+  render(obj: CustomPageObject, ctx: CanvasRenderingContext2D, context: RenderContext): void;
+}
+
 export class OFDRenderer {
+  private static customRenderers: Map<string, ObjectRendererExt> = new Map<string, ObjectRendererExt>();
+
+  static registerRenderer(ext: ObjectRendererExt): void {
+    OFDRenderer.customRenderers.set(ext.customType, ext);
+  }
+
+  static clearRenderers(): void {
+    OFDRenderer.customRenderers.clear();
+  }
+
   private renderResources: RenderResources | undefined = undefined;
   // 当前页 px/mm 换算系数，渲染时更新。
   // HarmonyOS Canvas 中 ctx.font 的字号是绝对 vp，不跟 ctx.scale 变换，所以字号需要单独乘 pxPerMm。
@@ -76,11 +102,37 @@ export class OFDRenderer {
         this.renderImage(obj as ImageObject, ctx);
       } else if (obj.type === 'block') {
         this.renderBlock(obj as CompositeBlock, ctx);
+      } else if (obj.type === 'custom') {
+        this.renderCustom(obj as CustomPageObject, ctx);
       }
     } catch (error) {
       console.warn(`[ofdkit] 渲染对象失败：${error}`);
     }
     ctx.restore();
+  }
+
+  private renderCustom(obj: CustomPageObject, ctx: CanvasRenderingContext2D): void {
+    const ext: ObjectRendererExt | undefined = OFDRenderer.customRenderers.get(obj.customType);
+    if (ext === undefined) {
+      console.warn(`[ofdkit] 未注册 ${obj.customType} 渲染器，跳过对象 ${obj.id}`);
+      return;
+    }
+    ctx.translate(obj.boundary.x, obj.boundary.y);
+    if (obj.ctm !== undefined) {
+      this.applyCTM(obj.ctm, ctx);
+    }
+    ext.render(obj, ctx, this.makeRenderContext());
+  }
+
+  private makeRenderContext(): RenderContext {
+    const empty: Map<string, image.PixelMap> = new Map<string, image.PixelMap>();
+    const emptyFonts: Map<string, string> = new Map<string, string>();
+    return {
+      pxPerMm: this.pxPerMm,
+      resources: this.renderResources !== undefined ? this.renderResources.resources : undefined,
+      pixelMaps: this.renderResources !== undefined ? this.renderResources.pixelMaps : empty,
+      fontFamilies: this.renderResources !== undefined ? this.renderResources.fontFamilies : emptyFonts
+    };
   }
 
   private renderText(obj: TextObject, ctx: CanvasRenderingContext2D): void {
