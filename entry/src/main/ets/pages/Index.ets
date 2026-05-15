@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit';
 import { picker } from '@kit.CoreFileKit';
-import { OFDDocument, OFDPage, OFDParser, PageContent, Layer } from '../ofdkit';
+import { OFDDocument, OFDPage, OFDParser, PageContent, Layer, installDefaultExtensions } from '../ofdkit';
 import { FileUtils } from '../ofdkit/utils/FileUtils';
 import { OFDPageView } from '../ofdkit/components/OFDPageView';
 
@@ -12,6 +12,10 @@ struct Index {
   @State documentInfo: OFDDocument | undefined = undefined;
   @State selectedPageIndex: number = 0;
   @State showPreview: boolean = false;
+
+  aboutToAppear(): void {
+    installDefaultExtensions();
+  }
 
   build() {
     Scroll() {
