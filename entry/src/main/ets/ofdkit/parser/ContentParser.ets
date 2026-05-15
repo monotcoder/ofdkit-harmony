@@ -84,7 +84,8 @@ export class ContentParser {
     };
   }
 
-  private parseObjects(parent: XmlNode): PageObject[] {
+  // 公开：供文档级扩展（如 Annotations）复用，从任意 XmlNode 解析其下的页面对象列表。
+  parseObjects(parent: XmlNode): PageObject[] {
     const objects: PageObject[] = [];
     parent.children.forEach((child: XmlNode) => {
       const obj: PageObject | undefined = this.parseObject(child);
