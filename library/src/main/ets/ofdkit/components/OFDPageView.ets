@@ -174,14 +174,16 @@ export struct OFDPageView {
       return;
     }
     const family: string = `OFD_${fontId}`;
+    // HarmonyOS Font.registerFont 默认把 familySrc 当 rawfile 资源路径；要从沙箱绝对路径加载需要 file:// 前缀。
+    const familySrc: string = fontDef.fontFile.startsWith('file://') ? fontDef.fontFile : `file://${fontDef.fontFile}`;
     if (!registeredFontFamilies.has(family)) {
       try {
-        this.getUIContext().getFont().registerFont({ familyName: family, familySrc: fontDef.fontFile });
+        this.getUIContext().getFont().registerFont({ familyName: family, familySrc });
         registeredFontFamilies.add(family);
-        console.info(`[ofdkit] 字体注册成功：${family} ← ${fontDef.fontFile}`);
+        console.info(`[ofdkit] 字体注册成功：${family} ← ${familySrc}`);
       } catch (error) {
         const msg: string = error instanceof Error ? error.message : String(error);
-        console.warn(`[ofdkit] 字体注册失败 ${family} src=${fontDef.fontFile}：${msg}`);
+        console.warn(`[ofdkit] 字体注册失败 ${family} src=${familySrc}：${msg}`);
         return;
       }
     }
