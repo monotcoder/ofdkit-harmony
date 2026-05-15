@@ -66,7 +66,7 @@ export interface Layer {
   objects: PageObject[];
 }
 
-export type PageObject = TextObject | PathObject | ImageObject | CompositeBlock;
+export type PageObject = TextObject | PathObject | ImageObject | CompositeBlock | CustomPageObject;
 
 export interface BasePageObject {
   id: string;
@@ -121,6 +121,15 @@ export interface CompositeBlock {
   ctm?: CTM;
   drawParam?: string;
   children: PageObject[];
+}
+
+// 扩展点用：第三方/商业模块通过自定义对象介入解析与渲染。
+// customType 用于路由到对应的渲染器（如 'signature'、'annotation'、'formfield'）。
+// payload 由对应扩展自定义结构，渲染器自行 cast。
+export interface CustomPageObject extends BasePageObject {
+  type: 'custom';
+  customType: string;
+  payload: Object;
 }
 
 export interface CTM {
