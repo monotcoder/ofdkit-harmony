@@ -1,8 +1,15 @@
 import { common } from '@kit.AbilityKit';
 import { picker } from '@kit.CoreFileKit';
-import { OFDDocument, OFDPage, OFDParser, PageContent, Layer, installDefaultExtensions } from '../ofdkit';
-import { FileUtils } from '../ofdkit/utils/FileUtils';
-import { OFDPageView } from '../ofdkit/components/OFDPageView';
+import {
+  OFDDocument,
+  OFDPage,
+  OFDParser,
+  PageContent,
+  Layer,
+  FileUtils,
+  OFDPageView,
+  installDefaultExtensions
+} from 'ofdkit-harmony';
 
 @Entry
 @Component

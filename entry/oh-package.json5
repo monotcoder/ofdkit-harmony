@@ -5,5 +5,7 @@
   "main": "",
   "author": "Mo",
   "license": "Apache-2.0",
-  "dependencies": {}
+  "dependencies": {
+    "ofdkit-harmony": "file:../library"
+  }
 }
