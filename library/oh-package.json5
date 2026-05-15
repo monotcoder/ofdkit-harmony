@@ -1,0 +1,10 @@
+{
+  "name": "ofdkit-harmony",
+  "version": "0.1.0",
+  "description": "HarmonyOS NEXT 原生 OFD 解析与渲染库（遵循 GB/T 33190-2016）",
+  "main": "Index.ets",
+  "author": "Mo",
+  "license": "Apache-2.0",
+  "keywords": ["ofd", "harmony", "arkts", "version-document"],
+  "dependencies": {}
+}
