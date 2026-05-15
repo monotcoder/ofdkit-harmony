@@ -14,7 +14,7 @@ import {
   OFDZipAdapter,
   Layer,
   TemplateRef,
-  ParsedPage
+  PageContent
 } from './types';
 import { XmlNode, XmlParser } from '../utils/XmlParser';
 import { FileUtils } from '../utils/FileUtils';
@@ -150,8 +150,8 @@ export class OFDParser {
       }
       try {
         const tplXml: string = await this.fileAdapter.readText(actualPath);
-        const parsed: ParsedPage = this.contentParser.parsePage(tplXml);
-        templates.set(id, parsed.content.layers);
+        const content: PageContent = this.contentParser.parseTemplate(tplXml);
+        templates.set(id, content.layers);
       } catch (error) {
         console.warn(`[ofdkit] 解析模板页 ${id} 失败：${error}`);
       }

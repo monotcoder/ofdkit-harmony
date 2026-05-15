@@ -49,6 +49,15 @@ export class ContentParser {
     };
   }
 
+  // 模板页：根节点也是 <Page>，但通常没有 <Area>（模板继承宿主页面的 PhysicalBox），只需要取 <Content> 层。
+  parseTemplate(contentXml: string): PageContent {
+    const pageNode: XmlNode = XmlParser.parse(contentXml);
+    if (pageNode.name !== 'Page') {
+      throw new Error(`模板 Content.xml 根节点应为 <Page>，实际：<${pageNode.name}>`);
+    }
+    return this.parseContent(pageNode);
+  }
+
   private parseTemplateRefs(pageNode: XmlNode): TemplateRef[] {
     const refs: TemplateRef[] = [];
     XmlParser.findChildren(pageNode, 'Template').forEach((node: XmlNode) => {
