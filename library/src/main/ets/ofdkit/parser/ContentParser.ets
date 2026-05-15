@@ -143,7 +143,7 @@ export class ContentParser {
     try {
       const result: TextObject = {
         type: 'text',
-        id: XmlParser.requireAttr(node, 'ID'),
+        id: XmlParser.attr(node, 'ID') ?? '',
         boundary: ParseHelpers.box(XmlParser.requireAttr(node, 'Boundary')),
         font: XmlParser.requireAttr(node, 'Font'),
         size: ParseHelpers.number(XmlParser.requireAttr(node, 'Size')),
@@ -183,7 +183,7 @@ export class ContentParser {
     try {
       const result: PathObject = {
         type: 'path',
-        id: XmlParser.requireAttr(node, 'ID'),
+        id: XmlParser.attr(node, 'ID') ?? '',
         boundary: ParseHelpers.box(XmlParser.requireAttr(node, 'Boundary')),
         ctm: ParseHelpers.optionalCTM(XmlParser.attr(node, 'CTM')),
         drawParam: XmlParser.attr(node, 'DrawParam'),
@@ -205,7 +205,7 @@ export class ContentParser {
     try {
       const result: ImageObject = {
         type: 'image',
-        id: XmlParser.requireAttr(node, 'ID'),
+        id: XmlParser.attr(node, 'ID') ?? '',
         boundary: ParseHelpers.box(XmlParser.requireAttr(node, 'Boundary')),
         resourceID: XmlParser.requireAttr(node, 'ResourceID'),
         ctm: ParseHelpers.optionalCTM(XmlParser.attr(node, 'CTM')),
