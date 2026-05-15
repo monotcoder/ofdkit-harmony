@@ -16,7 +16,32 @@ import { XmlNode, XmlParser } from '../utils/XmlParser';
 import { FileUtils } from '../utils/FileUtils';
 import { ZipUtils } from '../utils/ZipUtils';
 
+// 文档级扩展点上下文：扩展可以读已解析的 Document.xml、修改 pages（追加 layer/对象）。
+export interface DocumentExtensionContext {
+  extractDir: string;
+  docBaseDir: string;
+  documentNode: XmlNode;
+  pages: OFDPage[];
+  fileAdapter: OFDFileAdapter;
+}
+
+// 文档级扩展：解析后被框架顺序调用，用于接入 Annotations、Signatures 等关联文件。
+export interface DocumentExtension {
+  name: string;
+  apply(context: DocumentExtensionContext): Promise<void>;
+}
+
 export class OFDParser {
+  private static documentExtensions: DocumentExtension[] = [];
+
+  static registerDocumentExtension(ext: DocumentExtension): void {
+    OFDParser.documentExtensions.push(ext);
+  }
+
+  static clearDocumentExtensions(): void {
+    OFDParser.documentExtensions = [];
+  }
+
   private readonly fileAdapter: OFDFileAdapter;
   private readonly zipAdapter: OFDZipAdapter;
   private readonly workDir: string;
@@ -77,8 +102,37 @@ export class OFDParser {
       resources
     };
 
+    await this.applyDocumentExtensions(documentXml, extractDir, docBaseDir, pages);
+
     console.info(`[ofdkit] 解析完成，总页数：${document.pages.length}`);
     return document;
+  }
+
+  private async applyDocumentExtensions(
+    documentXml: string,
+    extractDir: string,
+    docBaseDir: string,
+    pages: OFDPage[]
+  ): Promise<void> {
+    if (OFDParser.documentExtensions.length === 0) {
+      return;
+    }
+    const docNode: XmlNode = XmlParser.parse(documentXml);
+    const context: DocumentExtensionContext = {
+      extractDir,
+      docBaseDir,
+      documentNode: docNode,
+      pages,
+      fileAdapter: this.fileAdapter
+    };
+    for (let i: number = 0; i < OFDParser.documentExtensions.length; i++) {
+      const ext: DocumentExtension = OFDParser.documentExtensions[i];
+      try {
+        await ext.apply(context);
+      } catch (error) {
+        console.warn(`[ofdkit] 文档扩展 ${ext.name} 失败：${error}`);
+      }
+    }
   }
 
   parseOFDXml(ofdXml: string): OFDPackageEntry {
