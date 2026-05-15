@@ -12,7 +12,8 @@ import {
   CustomPageObject,
   TextCode,
   PageBox,
-  ParsedPage
+  ParsedPage,
+  TemplateRef
 } from './types';
 import { XmlNode, XmlParser } from '../utils/XmlParser';
 import { ParseHelpers } from './ParseHelpers';
@@ -43,8 +44,25 @@ export class ContentParser {
     }
     return {
       physicalBox: this.parsePhysicalBox(pageNode),
-      content: this.parseContent(pageNode)
+      content: this.parseContent(pageNode),
+      templateRefs: this.parseTemplateRefs(pageNode)
     };
+  }
+
+  private parseTemplateRefs(pageNode: XmlNode): TemplateRef[] {
+    const refs: TemplateRef[] = [];
+    XmlParser.findChildren(pageNode, 'Template').forEach((node: XmlNode) => {
+      const id: string | undefined = XmlParser.attr(node, 'TemplateID');
+      if (id === undefined) {
+        return;
+      }
+      const z: string | undefined = XmlParser.attr(node, 'ZOrder');
+      refs.push({
+        templateID: id,
+        zOrder: z === 'Foreground' ? 'Foreground' : 'Background'
+      });
+    });
+    return refs;
   }
 
   private parsePhysicalBox(pageNode: XmlNode): PageBox {

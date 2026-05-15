@@ -14,6 +14,13 @@ export interface OFDPage {
   physicalBox: PageBox;
   content?: PageContent;
   resources?: OFDResources;
+  templateRefs?: TemplateRef[];
+}
+
+// 页面引用模板：ZOrder 决定模板内容在本页内容之下（Background，默认）还是之上（Foreground）。
+export interface TemplateRef {
+  templateID: string;
+  zOrder: string;
 }
 
 export interface PageContent {
@@ -23,6 +30,7 @@ export interface PageContent {
 export interface ParsedPage {
   physicalBox: PageBox;
   content: PageContent;
+  templateRefs: TemplateRef[];
 }
 
 export interface PageBox {

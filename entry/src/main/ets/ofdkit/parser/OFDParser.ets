@@ -1,6 +1,7 @@
 // OFD 包入口：负责解压、读 OFD.xml、读 Document.xml、读资源 XML、按页读 Content.xml，最后组装 OFDDocument。
 
 import { DocumentParser } from './DocumentParser';
+import { ContentParser } from './ContentParser';
 import { ResourceParser } from './ResourceParser';
 import {
   OFDDocument,
@@ -10,7 +11,10 @@ import {
   OFDPageRef,
   OFDParserOptions,
   OFDResources,
-  OFDZipAdapter
+  OFDZipAdapter,
+  Layer,
+  TemplateRef,
+  ParsedPage
 } from './types';
 import { XmlNode, XmlParser } from '../utils/XmlParser';
 import { FileUtils } from '../utils/FileUtils';
@@ -46,6 +50,7 @@ export class OFDParser {
   private readonly zipAdapter: OFDZipAdapter;
   private readonly workDir: string;
   private readonly documentParser: DocumentParser = new DocumentParser();
+  private readonly contentParser: ContentParser = new ContentParser();
 
   constructor(options?: OFDParserOptions) {
     this.fileAdapter = options?.fileAdapter ? options.fileAdapter : new FileUtils();
@@ -91,6 +96,13 @@ export class OFDParser {
     }
 
     const pages: OFDPage[] = this.documentParser.parse(documentXml, pageContents);
+
+    const templates: Map<string, Layer[]> = await this.loadTemplates(documentXml, extractDir, docBaseDir);
+    if (templates.size > 0) {
+      this.applyTemplates(pages, templates);
+      console.info(`[ofdkit] 模板页应用完成：${templates.size} 个模板`);
+    }
+
     pages.forEach((page: OFDPage) => {
       page.resources = resources;
     });
@@ -106,6 +118,66 @@ export class OFDParser {
 
     console.info(`[ofdkit] 解析完成，总页数：${document.pages.length}`);
     return document;
+  }
+
+  private async loadTemplates(
+    documentXml: string,
+    extractDir: string,
+    docBaseDir: string
+  ): Promise<Map<string, Layer[]>> {
+    const docNode: XmlNode = XmlParser.parse(documentXml);
+    const commonData: XmlNode | undefined = XmlParser.findChild(docNode, 'CommonData');
+    const templates: Map<string, Layer[]> = new Map<string, Layer[]>();
+    if (commonData === undefined) {
+      return templates;
+    }
+    const templateNodes: XmlNode[] = XmlParser.findChildren(commonData, 'TemplatePage');
+    for (let i: number = 0; i < templateNodes.length; i++) {
+      const tplNode: XmlNode = templateNodes[i];
+      const id: string | undefined = XmlParser.attr(tplNode, 'ID');
+      const baseLoc: string | undefined = XmlParser.attr(tplNode, 'BaseLoc');
+      if (id === undefined || baseLoc === undefined) {
+        continue;
+      }
+      const tplPath: string = this.fileAdapter.joinPath(extractDir, this.fileAdapter.joinPath(docBaseDir, baseLoc));
+      const exists: boolean = await this.fileAdapter.exists(tplPath);
+      if (!exists) {
+        console.warn(`[ofdkit] 模板页文件不存在：${tplPath}`);
+        continue;
+      }
+      try {
+        const tplXml: string = await this.fileAdapter.readText(tplPath);
+        const parsed: ParsedPage = this.contentParser.parsePage(tplXml);
+        templates.set(id, parsed.content.layers);
+      } catch (error) {
+        console.warn(`[ofdkit] 解析模板页 ${id} 失败：${error}`);
+      }
+    }
+    return templates;
+  }
+
+  private applyTemplates(pages: OFDPage[], templates: Map<string, Layer[]>): void {
+    pages.forEach((page: OFDPage) => {
+      const refs: TemplateRef[] | undefined = page.templateRefs;
+      if (refs === undefined || refs.length === 0) {
+        return;
+      }
+      if (page.content === undefined) {
+        page.content = { layers: [] };
+      }
+      refs.forEach((ref: TemplateRef) => {
+        const layers: Layer[] | undefined = templates.get(ref.templateID);
+        if (layers === undefined) {
+          console.warn(`[ofdkit] 找不到模板 ${ref.templateID}`);
+          return;
+        }
+        if (ref.zOrder === 'Foreground') {
+          page.content!.layers = page.content!.layers.concat(layers);
+        } else {
+          page.content!.layers = layers.concat(page.content!.layers);
+        }
+      });
+    });
   }
 
   private async applyDocumentExtensions(

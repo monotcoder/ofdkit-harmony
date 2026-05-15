@@ -33,7 +33,8 @@ export class DocumentParser {
           id: ref.id,
           pageIndex: index,
           physicalBox: parsed.physicalBox,
-          content: parsed.content
+          content: parsed.content,
+          templateRefs: parsed.templateRefs
         });
       } catch (error) {
         console.warn(`[ofdkit] 解析页面 ${index + 1} 失败，降级：${error}`);
