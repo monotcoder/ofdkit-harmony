@@ -115,7 +115,19 @@ struct Index {
         .fontWeight(FontWeight.Bold)
 
       if (this.selectedPageIndex < this.documentInfo!.pages.length) {
-        OFDPageView({ page: this.documentInfo!.pages[this.selectedPageIndex] })
+        OFDPageView({
+          page: this.documentInfo!.pages[this.selectedPageIndex],
+          onSwipeNext: () => {
+            if (this.selectedPageIndex < this.documentInfo!.pages.length - 1) {
+              this.selectedPageIndex++;
+            }
+          },
+          onSwipePrev: () => {
+            if (this.selectedPageIndex > 0) {
+              this.selectedPageIndex--;
+            }
+          }
+        })
       }
 
       Row({ space: 8 }) {

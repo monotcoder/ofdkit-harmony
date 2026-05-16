@@ -26,6 +26,9 @@ const MAX_SCALE: number = 5.0;
 @Component
 export struct OFDPageView {
   @Prop @Watch('onPageChanged') page: OFDPage;
+  // 横向快速划动切页（手指右→左：下一页；左→右：上一页）。仅在未缩放且未选中文字时触发。
+  onSwipeNext?: () => void;
+  onSwipePrev?: () => void;
   @State private scaleVal: number = 1.0;
   @State private offsetX: number = 0;
   @State private offsetY: number = 0;
@@ -120,9 +123,33 @@ export struct OFDPageView {
         TapGesture({ count: 2 })
           .onAction(() => {
             this.resetTransform();
+          }),
+        SwipeGesture({ direction: SwipeDirection.Horizontal, speed: 200 })
+          .onAction((event: GestureEvent) => {
+            this.handleSwipe(event);
           })
       )
     )
+  }
+
+  private handleSwipe(event: GestureEvent): void {
+    // 缩放后单指拖动是平移图片，不应触发切页；选中文字模式也跳过避免误操作。
+    if (this.selectMode || this.scaleVal > 1.1) {
+      return;
+    }
+    const angle: number = event.angle !== undefined ? event.angle : 0;
+    const absAngle: number = Math.abs(angle);
+    if (absAngle < 45) {
+      // 手指从左→右，看上一页
+      if (this.onSwipePrev !== undefined) {
+        this.onSwipePrev();
+      }
+    } else if (absAngle > 135) {
+      // 手指从右→左，看下一页
+      if (this.onSwipeNext !== undefined) {
+        this.onSwipeNext();
+      }
+    }
   }
 
   private handleLongPress(event: GestureEvent): void {

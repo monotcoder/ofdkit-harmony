@@ -479,6 +479,9 @@ class PathDataParser {
   static run(data: string, ctx: CanvasRenderingContext2D): void {
     const tokens: string[] = data.trim().split(/\s+/).filter((t: string) => t.length > 0);
     let i: number = 0;
+    // 维护当前点用于 A 命令（Canvas 没暴露 currentPoint，自己跟）
+    let curX: number = 0;
+    let curY: number = 0;
     while (i < tokens.length) {
       const cmd: string = tokens[i];
       i++;
@@ -490,6 +493,8 @@ class PathDataParser {
           i += 2;
           if (!Number.isNaN(x) && !Number.isNaN(y)) {
             ctx.moveTo(x, y);
+            curX = x;
+            curY = y;
           }
           break;
         }
@@ -499,6 +504,8 @@ class PathDataParser {
           i += 2;
           if (!Number.isNaN(x) && !Number.isNaN(y)) {
             ctx.lineTo(x, y);
+            curX = x;
+            curY = y;
           }
           break;
         }
@@ -510,6 +517,8 @@ class PathDataParser {
           i += 4;
           if (!Number.isNaN(x) && !Number.isNaN(y)) {
             ctx.quadraticCurveTo(x1, y1, x, y);
+            curX = x;
+            curY = y;
           }
           break;
         }
@@ -523,12 +532,27 @@ class PathDataParser {
           i += 6;
           if (!Number.isNaN(x) && !Number.isNaN(y)) {
             ctx.bezierCurveTo(x1, y1, x2, y2, x, y);
+            curX = x;
+            curY = y;
           }
           break;
         }
         case 'A': {
+          // A rx ry rotation largeArcFlag sweepFlag x y
+          // SVG endpoint-arc 参数化，转 Canvas ellipse(center, rx, ry, rotation, startAngle, endAngle, ccw)
+          const rx: number = Number(tokens[i]);
+          const ry: number = Number(tokens[i + 1]);
+          const rotDeg: number = Number(tokens[i + 2]);
+          const largeArc: number = Number(tokens[i + 3]);
+          const sweep: number = Number(tokens[i + 4]);
+          const x: number = Number(tokens[i + 5]);
+          const y: number = Number(tokens[i + 6]);
           i += 7;
-          console.warn('[ofdkit] AbbreviatedData 命令 A（圆弧）暂未支持');
+          if (!Number.isNaN(rx) && !Number.isNaN(ry) && !Number.isNaN(x) && !Number.isNaN(y)) {
+            drawEndpointArc(ctx, curX, curY, x, y, rx, ry, rotDeg, largeArc !== 0, sweep !== 0);
+            curX = x;
+            curY = y;
+          }
           break;
         }
         case 'C': {
@@ -541,4 +565,85 @@ class PathDataParser {
       }
     }
   }
+}
+
+// SVG endpoint-arc → Canvas.ellipse 参数转换。
+// 实现参考 W3C SVG 1.1 附录 F.6.5（Conversion from endpoint to center parameterization）。
+// 输入：当前点 (x1,y1)、目标点 (x2,y2)、半轴 rx/ry、椭圆相对 X 轴旋转 rotDeg（度）、largeArc/sweep 标志。
+// Canvas.ellipse 用中心参数化：需要算出中心点 (cx,cy)、起止角 + counterclockwise。
+function drawEndpointArc(
+  ctx: CanvasRenderingContext2D,
+  x1: number, y1: number,
+  x2: number, y2: number,
+  rx: number, ry: number,
+  rotDeg: number,
+  largeArc: boolean, sweep: boolean
+): void {
+  if (rx === 0 || ry === 0) {
+    ctx.lineTo(x2, y2);
+    return;
+  }
+  let rxAbs: number = Math.abs(rx);
+  let ryAbs: number = Math.abs(ry);
+  const rad: number = rotDeg * Math.PI / 180;
+  const cosR: number = Math.cos(rad);
+  const sinR: number = Math.sin(rad);
+
+  // Step 1: 端点变换到去旋转坐标系下的中点
+  const dx2: number = (x1 - x2) / 2;
+  const dy2: number = (y1 - y2) / 2;
+  const x1p: number = cosR * dx2 + sinR * dy2;
+  const y1p: number = -sinR * dx2 + cosR * dy2;
+
+  // Step 2: 半轴可能过小，按 SVG 规范放大
+  const rxSq: number = rxAbs * rxAbs;
+  const rySq: number = ryAbs * ryAbs;
+  const x1pSq: number = x1p * x1p;
+  const y1pSq: number = y1p * y1p;
+  const lambda: number = x1pSq / rxSq + y1pSq / rySq;
+  if (lambda > 1) {
+    const s: number = Math.sqrt(lambda);
+    rxAbs = rxAbs * s;
+    ryAbs = ryAbs * s;
+  }
+
+  // Step 3: 中心点（变换坐标系下）
+  const sign: number = largeArc === sweep ? -1 : 1;
+  const num: number = rxAbs * rxAbs * ryAbs * ryAbs - rxAbs * rxAbs * y1pSq - ryAbs * ryAbs * x1pSq;
+  const den: number = rxAbs * rxAbs * y1pSq + ryAbs * ryAbs * x1pSq;
+  const sq: number = den === 0 ? 0 : Math.max(0, num / den);
+  const coef: number = sign * Math.sqrt(sq);
+  const cxp: number = coef * (rxAbs * y1p / ryAbs);
+  const cyp: number = coef * -(ryAbs * x1p / rxAbs);
+
+  // Step 4: 还原到用户坐标系下的中心点
+  const cx: number = cosR * cxp - sinR * cyp + (x1 + x2) / 2;
+  const cy: number = sinR * cxp + cosR * cyp + (y1 + y2) / 2;
+
+  // Step 5: 起止角
+  const ux: number = (x1p - cxp) / rxAbs;
+  const uy: number = (y1p - cyp) / ryAbs;
+  const vx: number = (-x1p - cxp) / rxAbs;
+  const vy: number = (-y1p - cyp) / ryAbs;
+  const startAngle: number = angleBetween(1, 0, ux, uy);
+  let deltaAngle: number = angleBetween(ux, uy, vx, vy);
+  if (!sweep && deltaAngle > 0) {
+    deltaAngle = deltaAngle - 2 * Math.PI;
+  } else if (sweep && deltaAngle < 0) {
+    deltaAngle = deltaAngle + 2 * Math.PI;
+  }
+  const endAngle: number = startAngle + deltaAngle;
+
+  // Canvas.ellipse 第 8 个参数 counterclockwise：deltaAngle < 0 时逆时针
+  ctx.ellipse(cx, cy, rxAbs, ryAbs, rad, startAngle, endAngle, deltaAngle < 0);
+}
+
+function angleBetween(ux: number, uy: number, vx: number, vy: number): number {
+  const dot: number = ux * vx + uy * vy;
+  const len: number = Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
+  let c: number = len === 0 ? 1 : dot / len;
+  if (c < -1) c = -1;
+  if (c > 1) c = 1;
+  const sign: number = (ux * vy - uy * vx) < 0 ? -1 : 1;
+  return sign * Math.acos(c);
 }
