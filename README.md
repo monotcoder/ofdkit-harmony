@@ -1,93 +1,64 @@
 # ofdkit-harmony
 
-`ofdkit-harmony` 是一个面向 HarmonyOS NEXT 的 ArkTS 原生 OFD 解析与渲染库。
+面向 HarmonyOS NEXT 的 ArkTS 原生 OFD（GB/T 33190-2016）解析与渲染库。
 
-项目目标是遵循 GB/T 33190-2016，提供可在鸿蒙原生应用中直接使用的 OFD 阅读能力，并在后续发布到 ohpm。
+无需 Web 引擎、无需 JNI，纯 ArkTS 实现 + Canvas 直绘。适合阅读电子发票、电子公文、电子合同等场景。
 
-## 仓库说明
+> **国密签章验签** 等付费功能由商业版 [`ofdkit-harmony-pro`](#与商业版的关系) 通过扩展点接入，本仓库提供完整扩展点 API。
 
-Gitee 是本项目主仓库：
+---
 
-https://gitee.com/notcoder/ofdkit-harmony
+## 仓库
 
-GitHub 仓库仅作为镜像同步使用。Issue、Pull Request 和功能讨论请优先提交到 Gitee 主仓库。
+- **主仓库（Gitee）**：https://gitee.com/notcoder/ofdkit-harmony
+- **GitHub 镜像**：https://github.com/monotcoder/ofdkit-harmony
 
-## 当前阶段
+Issue / PR / 讨论请优先提交到 Gitee 主仓库。
 
-阶段五：扩展点系统 + Library 抽离。
+## 功能矩阵
 
-当前已完成：
-
-- 选择 `.ofd` 文件并复制到应用缓存目录
-- 解压 OFD ZIP 包
-- 自研轻量 XML DOM 解析器，替代正则解析
-- 解析 `OFD.xml` / `Document.xml` / `Content.xml`
-- 解析页面内容对象（文字、路径、图片）、图层结构、PageBlock 嵌套
-- 解析变换矩阵（CTM）
-- Canvas 页面渲染（按文档绘制顺序保留 z-order）
-- 文字对象渲染（支持 DeltaX/DeltaY 逐字定位、HScale、italic/weight）
-- 路径对象渲染（支持 S/M/L/Q/B/C 命令，A 暂占位）
-- 解析 PublicRes / DocumentRes 资源索引
-- 字体加载：注册 OFD 嵌入字体到系统
-- 图片资源加载：解码到 PixelMap 并真实绘制
-- DrawParam 绘制参数应用（含 Relative 继承链）
-- **Annotations 注释加载与渲染**
-- **TemplatePage 模板页继承（Background / Foreground）**
-- **Signatures 签章占位（解析 StampAnnot，红色虚线框 + "需 Pro 验签"）**
-- **扩展点系统**：自定义对象解析 / 渲染 / 文档级扩展（见 [EXTENSIONS.md](./EXTENSIONS.md)）
-- **ohpm Library 抽离**：发布为独立 `ofdkit-harmony` 包
-- 手势：双指捏合缩放、单指拖动平移、双击复位
-- 页面预览和切换功能
-
-暂未实现：
-
-- 签章国密验签（SM2/SM3）与真实印章图像绘制 — 留给 Pro 商业版
-- OFD ↔ PDF 转换 — 留给 Pro 商业版
-- ColorSpace（CMYK / Pattern / Gradient）
-- 圆弧命令 A 的完整支持
-- 表单填充（CT_FormFile）
+| 能力 | 状态 |
+|---|---|
+| OFD ZIP 解压 + 包结构解析（OFD.xml / Document.xml / Content.xml） | ✅ |
+| 多页、PageBlock 嵌套、变换矩阵（CTM） | ✅ |
+| TextObject 文字（DeltaX / DeltaY 逐字定位，含 `g N v` 重复格式） | ✅ |
+| PathObject 路径（S / M / L / Q / B / C 命令） | ✅ |
+| ImageObject 图片（嵌入资源解码到 PixelMap） | ✅ |
+| 资源索引（PublicRes / DocumentRes：Fonts / MultiMedias / DrawParams） | ✅ |
+| DrawParam Relative 继承链合并 | ✅ |
+| 嵌入字体注册（`font.registerFont`） | ✅ |
+| TemplatePage 模板页（ZOrder Background / Foreground） | ✅ |
+| Annotations 注释加载与渲染 | ✅ |
+| Signatures 签章解析（StampAnnot → CustomPageObject） | ✅ |
+| 大小写不敏感路径解析（兼容 OFD 自身写错大小写的样本） | ✅ |
+| 三类扩展点（对象解析 / 对象渲染 / 文档级） | ✅ |
+| OFD 嵌入 OFD 渲染入口（`renderEmbedded`，给矢量印章用） | ✅ |
+| **国密 SM2/SM3 签章验签 + 真实印章绘制** | Pro 版 |
+| **OFD ↔ PDF 转换** | Pro 版（规划中）|
+| AbbreviatedData `A` 圆弧命令 | 未实现 |
+| ColorSpace（CMYK / Pattern / Gradient） | 未实现（当前按 RGB 处理） |
+| 表单填充（CT_FormFile） | 未实现 |
+| 文字选择 / 复制 | 未实现 |
 
 ## 环境要求
 
-- DevEco Studio
-- HarmonyOS NEXT
+- HarmonyOS NEXT 6.1.0 / API 23+
+- DevEco Studio + ohpm
 - ArkTS / ArkUI
-- 最低支持：HarmonyOS NEXT 6.1.0 / API 23
 
-## 项目结构
+## 安装
 
-```text
-ofdkit-harmony/
-├── entry/                     # 示例应用（演示 picker + 渲染 + 手势）
-│   └── src/main/ets/
-│       ├── pages/Index.ets
-│       └── entryability/
-└── library/                   # 发布的 ohpm 包，name = ofdkit-harmony
-    ├── oh-package.json5
-    ├── Index.ets              # 公共导出入口
-    └── src/main/ets/ofdkit/
-        ├── parser/
-        │   ├── OFDParser.ets
-        │   ├── DocumentParser.ets
-        │   ├── ContentParser.ets
-        │   ├── ResourceParser.ets
-        │   ├── ParseHelpers.ets
-        │   ├── types.ets
-        │   └── extensions/    # 内置文档级扩展（Annotations / Signatures）
-        ├── renderer/
-        │   ├── OFDRenderer.ets
-        │   └── extensions/    # 内置占位渲染器
-        ├── components/
-        │   └── OFDPageView.ets
-        ├── utils/
-        │   ├── XmlParser.ets
-        │   ├── FileUtils.ets
-        │   └── ZipUtils.ets
-        ├── defaults.ets       # installDefaultExtensions
-        └── index.ets
+发布到 ohpm 之后通过 `oh-package.json5` 引用即可。本地开发可用 file 协议：
+
+```jsonc
+{
+  "dependencies": {
+    "ofdkit-harmony": "file:../path/to/library"
+  }
+}
 ```
 
-## 使用示例
+## 快速开始
 
 ```typescript
 import {
@@ -97,48 +68,97 @@ import {
   installDefaultExtensions
 } from 'ofdkit-harmony';
 
-// 1. 应用启动时安装默认扩展（注释、签章占位等）
+// 1) 应用启动时安装内置扩展（Annotations + Signature 占位）
 installDefaultExtensions();
 
-// 2. 解析 OFD
+// 2) 解析 OFD
 const parser = new OFDParser({ workDir: '/path/to/cache' });
 const doc: OFDDocument = await parser.parse('/path/to/file.ofd');
-console.info(`总页数：${doc.pages.length}`);
 
-// 3. 渲染（在 ArkUI Component 中）
-//    OFDPageView 组件已封装 Canvas + 资源预加载 + 手势
+// 3) 渲染
 @Component
 struct Reader {
   @State pageIndex: number = 0;
   @State doc: OFDDocument = ...;
 
   build() {
+    // OFDPageView 已封装资源预加载 + 手势（捏合 / 拖动 / 双击复位）
     OFDPageView({ page: this.doc.pages[this.pageIndex] })
   }
 }
 ```
 
-## 扩展开发
+`OFDPageView` 已自动处理：
+- 本页用到的嵌入字体 `font.registerFont`
+- 本页用到的图片 `createImageSource → PixelMap`
+- 手势：双指捏合缩放（0.5x ~ 5x）、单指拖动平移、双击复位
 
-如果你要接入自定义对象类型（如水印）、自定义渲染器（如真实签章绘制）或自定义文档级资源（如自定义表单），请参考 [EXTENSIONS.md](./EXTENSIONS.md)。
+## 项目结构
 
-商业版 [`ofdkit-harmony-pro`](./PRO.md)（计划中）通过同一套扩展点接入国密验签、OFD↔PDF 转换等高级功能。
+```text
+ofdkit-harmony/
+├── entry/                        # 示例应用（picker + 渲染 + 手势）
+└── library/                      # 发布的 ohpm 包 (name = ofdkit-harmony)
+    ├── Index.ets                 # 公共导出
+    └── src/main/ets/ofdkit/
+        ├── parser/
+        │   ├── OFDParser.ets         # 顶层入口
+        │   ├── DocumentParser.ets    # Document.xml
+        │   ├── ContentParser.ets     # Content.xml + 页面对象
+        │   ├── ResourceParser.ets    # PublicRes / DocumentRes
+        │   ├── ParseHelpers.ets
+        │   ├── types.ets             # 文档对象模型
+        │   └── extensions/           # AnnotationExtension / SignatureExtension
+        ├── renderer/
+        │   ├── OFDRenderer.ets       # Canvas 渲染（含 renderEmbedded）
+        │   └── extensions/           # SignaturePlaceholderRenderer
+        ├── components/
+        │   └── OFDPageView.ets       # ArkUI Canvas 组件
+        ├── utils/
+        │   ├── XmlParser.ets         # 自研 XML DOM
+        │   ├── FileUtils.ets         # 含 resolveCaseInsensitive
+        │   └── ZipUtils.ets
+        └── defaults.ets              # installDefaultExtensions
+```
 
-## 开发计划
+## 扩展点
 
-- 阶段一：解析 OFD 文件结构 ✅
-- 阶段二：解析页面内容对象 ✅
-- 阶段三：Canvas 页面渲染 ✅
-- 阶段四：字体、图片和资源管理 ✅
-- 阶段五：扩展点系统 + ohpm Library 抽离 ✅
-- 阶段六：商业版 `ofdkit-harmony-pro`（签章国密验签 / OFD↔PDF / 表单）
+三类扩展点：
+
+- **`ObjectParserExt`** — 自定义对象解析（如把某种自定义节点解析成 `CustomPageObject`）
+- **`ObjectRendererExt` + `RenderContext`** — 自定义对象渲染（按 `customType` 路由）
+- **`DocumentExtension`** — 文档级扩展，解析完成后异步处理（验签、外部资源加载等）
+
+`renderEmbedded(page, ctx, boundsW, boundsH, outerPxPerMm)` 是 `OFDRenderer` 的嵌入渲染入口，专门给"OFD 套 OFD"的场景用（典型场景：矢量电子印章 `SES_ESPictureInfo.type='OFD'`）。
+
+详见 [EXTENSIONS.md](./EXTENSIONS.md)。
+
+## 与商业版的关系
+
+[`ofdkit-harmony-pro`](https://gitee.com/notcoder/ofdkit-harmony-pro)（闭源商业版）通过本仓库的扩展点机制接入：
+
+- ✅ 国密 SM2/SM3 验签（依赖 `@kit.CryptoArchitectureKit` / `@kit.DeviceCertificateKit`）
+- ✅ Reference 文件完整性校验
+- ✅ SES_Signature ASN.1 DER 解析（GB/T 35275-2017）
+- ✅ 光栅印章（PNG / JPG）解码绘制
+- ✅ 矢量印章（type='OFD'）嵌入 OFD 递归解析渲染
+
+**Pro 版不修改开源版代码**，依赖关系单向（pro → opensource）。所有 Pro 能力都通过开源版定义的扩展点 API 实现，因此你完全可以用同样的方式接入自研的验签 / 转换 / 表单实现。
+
+## 路线图
+
+- ✅ 阶段一：OFD 文件结构解析
+- ✅ 阶段二：页面内容对象解析
+- ✅ 阶段三：Canvas 页面渲染
+- ✅ 阶段四：字体 / 图片 / 资源管理
+- ✅ 阶段五：扩展点系统 + ohpm Library 抽离
+- ✅ 阶段六：商业版 Pro 接入（验签 + 完整性 + 矢量印章）
+- ⏳ 阶段七：ColorSpace / 圆弧 / 表单 / 文字选择
+
+## 协议
+
+Apache License 2.0。Copyright 2026-present Mo and contributors.
 
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request。贡献前请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。
-
-## 协议
-
-本项目基于 Apache License 2.0 开源。
-
-Copyright 2026-present Mo and contributors.
