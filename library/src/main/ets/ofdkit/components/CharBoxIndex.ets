@@ -41,10 +41,14 @@ export interface TextSegment {
 export class CharBoxIndex {
   readonly charBoxes: CharBox[] = [];
   readonly segments: Map<string, TextSegment> = new Map<string, TextSegment>();
+  // 内部递增 key——OFD 标准里 TextObject.ID 可选，发票样本里多数 TextObject 没 ID 或都是 ""，
+  // 用 obj.id 当 map key 会让所有匿名段被覆盖成同一个。
+  private internalKeyCounter: number = 0;
 
   build(page: OFDPage): void {
     this.charBoxes.length = 0;
     this.segments.clear();
+    this.internalKeyCounter = 0;
     if (page.content === undefined) {
       return;
     }
@@ -86,6 +90,8 @@ export class CharBoxIndex {
     const baseX: number = offX + obj.boundary.x;
     const baseY: number = offY + obj.boundary.y;
     let combinedText: string = '';
+    const internalKey: string = `_seg_${this.internalKeyCounter}`;
+    this.internalKeyCounter = this.internalKeyCounter + 1;
 
     obj.textCodes.forEach((code: TextCode) => {
       const chars: string[] = Array.from(code.text);
@@ -111,13 +117,13 @@ export class CharBoxIndex {
           y: baseY + cy - obj.size,
           w,
           h: obj.size,
-          textObjId: obj.id
+          textObjId: internalKey
         });
       }
     });
 
-    this.segments.set(obj.id, {
-      id: obj.id,
+    this.segments.set(internalKey, {
+      id: internalKey,
       boundaryX: baseX,
       boundaryY: baseY,
       boundaryW: obj.boundary.width,

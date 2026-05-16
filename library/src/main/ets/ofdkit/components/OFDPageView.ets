@@ -89,6 +89,15 @@ export struct OFDPageView {
     .width('100%')
     .clip(true)
     .alignContent(Alignment.Top)
+    // LongPressGesture 用 priorityGesture 独立——放进主 GestureGroup 时，PanGesture 抢占
+    // 会导致后续长按状态紊乱（用户体验：第一次能选中，再长按其他位置时无响应）。
+    // priorityGesture 比子组件和兄弟手势先识别，且自己独立维护识别状态。
+    .priorityGesture(
+      LongPressGesture({ repeat: false, duration: 500 })
+        .onAction((event: GestureEvent) => {
+          this.handleLongPress(event);
+        })
+    )
     .gesture(
       GestureGroup(GestureMode.Parallel,
         PinchGesture({ fingers: 2 })
@@ -111,10 +120,6 @@ export struct OFDPageView {
         TapGesture({ count: 2 })
           .onAction(() => {
             this.resetTransform();
-          }),
-        LongPressGesture({ repeat: false, duration: 500 })
-          .onAction((event: GestureEvent) => {
-            this.handleLongPress(event);
           })
       )
     )
@@ -128,14 +133,14 @@ export struct OFDPageView {
     if (finger === undefined) {
       return;
     }
-    // localX/localY 是 vp 单位，是相对组件 layout 的坐标（已反算 scale/translate 变换）
-    const localPxX: number = vp2px(finger.localX);
-    const localPxY: number = vp2px(finger.localY);
     if (this.context.width <= 0 || this.context.height <= 0) {
       return;
     }
-    const ofdX: number = localPxX / this.context.width * this.page.physicalBox.width;
-    const ofdY: number = localPxY / this.context.height * this.page.physicalBox.height;
+    // HarmonyOS CanvasRenderingContext2D 默认 unit 是 vp，width/height 也是 vp。
+    // fingerList[0].localX/localY 也是 vp（相对组件 layout，已反算 scale/translate）。
+    // 同单位直接比例换算，不要走 vp2px——那会变成 px / vp 单位不匹配，结果偏大 DPR 倍。
+    const ofdX: number = finger.localX / this.context.width * this.page.physicalBox.width;
+    const ofdY: number = finger.localY / this.context.height * this.page.physicalBox.height;
 
     const hitId: string | undefined = this.charIndex.hitText(ofdX, ofdY);
     if (hitId === undefined) {
