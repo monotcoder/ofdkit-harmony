@@ -12,6 +12,14 @@
   <img src="https://img.shields.io/badge/GB%2FT-33190--2016-C0282C.svg" alt="GB/T 33190-2016"/>
 </p>
 
+<p align="center">
+  <video src="https://gitee.com/notcoder/ofdkit-harmony/raw/main/.github/assets/demo.mov" width="320" controls autoplay loop muted></video>
+</p>
+
+<p align="center">
+  <sub>演示视频中印章渲染由商业版 <a href="https://gitee.com/notcoder/ofdkit-harmony-pro"><code>ofdkit-harmony-pro</code></a> 提供；开源版负责解析、渲染、扩展点框架。</sub>
+</p>
+
 HarmonyOS NEXT 上的原生 OFD 阅读库，纯 ArkTS 实现，遵循 GB/T 33190-2016。
 
 电子发票、电子公文、电子合同等 OFD 场景都能直接在鸿蒙原生应用里打开，无需 WebView、无需 JNI。
