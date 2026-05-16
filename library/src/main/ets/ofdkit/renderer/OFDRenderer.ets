@@ -45,6 +45,11 @@ export interface ObjectRendererExt {
 
 export class OFDRenderer {
   private static customRenderers: Map<string, ObjectRendererExt> = new Map<string, ObjectRendererExt>();
+  // 全局兜底字体 family。OFD 文件没嵌入 FontFile 时，文字会落到这个 family；
+  // 调用方负责 font.registerFont 注册具体字体文件，本库不打包任何字体（避免凭空增加包体积）。
+  // 典型用法：app 启动时 registerFont('SourceHanSerif', 'file://.../source-han.ttf')，
+  // 然后 OFDRenderer.setFallbackFontFamily('SourceHanSerif')，OFD 视觉上更接近纸质 PDF。
+  private static fallbackFontFamily: string | undefined = undefined;
 
   static registerRenderer(ext: ObjectRendererExt): void {
     OFDRenderer.customRenderers.set(ext.customType, ext);
@@ -52,6 +57,14 @@ export class OFDRenderer {
 
   static clearRenderers(): void {
     OFDRenderer.customRenderers.clear();
+  }
+
+  static setFallbackFontFamily(family: string | undefined): void {
+    OFDRenderer.fallbackFontFamily = family;
+  }
+
+  static getFallbackFontFamily(): string | undefined {
+    return OFDRenderer.fallbackFontFamily;
   }
 
   private renderResources: RenderResources | undefined = undefined;
@@ -367,15 +380,21 @@ export class OFDRenderer {
   }
 
   private fontFamilyFor(fontId: string): string {
+    const fallback: string | undefined = OFDRenderer.fallbackFontFamily;
+    const tail: string = fallback !== undefined && fallback.length > 0
+      ? `"${fallback}", sans-serif`
+      : 'sans-serif';
+
     const registered: string | undefined = this.renderResources?.fontFamilies.get(fontId);
     if (registered !== undefined) {
-      return `"${registered}", sans-serif`;
+      // 嵌入字体优先，但仍把 fallback 串到末尾——嵌入字体可能子集化、缺某些字符（比如签章里出现的生僻字）。
+      return `"${registered}", ${tail}`;
     }
     // 未嵌入 FontFile 时，把 OFD 标注的 FamilyName/FontName 也加进 fallback 链。
     // HarmonyOS 自带宋体/楷体/Courier New 等通用字体的话，Canvas 可以择优匹配，避免全退到 sans-serif 引起字距错位。
     const fontDef: OFDFont | undefined = this.renderResources?.resources.fonts.get(fontId);
     if (fontDef === undefined) {
-      return 'sans-serif';
+      return tail;
     }
     const names: string[] = [];
     if (fontDef.familyName !== undefined && fontDef.familyName.length > 0) {
@@ -384,7 +403,7 @@ export class OFDRenderer {
     if (fontDef.fontName.length > 0 && fontDef.fontName !== fontDef.familyName) {
       names.push(`"${fontDef.fontName}"`);
     }
-    names.push('sans-serif');
+    names.push(tail);
     return names.join(', ');
   }
 }

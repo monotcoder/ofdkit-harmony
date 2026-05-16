@@ -106,6 +106,21 @@ struct Reader {
 
 `OFDPageView` 内部自动完成本页字体注册、图片解码、Canvas 绘制和手势。
 
+### 改善没嵌入字体的中文显示
+
+大多数电子发票的字体只在 OFD 里写了 `FontName="宋体"` 但没把字体文件嵌进去，渲染会退到 HarmonyOS Sans，看起来比纸质宋体粗黑。如果你的 app 自带 OFL 协议的中文字体（思源宋体/黑体等），可以注册成兜底字体：
+
+```typescript
+import { font } from '@kit.ArkUI';
+import { OFDRenderer } from 'ofdkit-harmony';
+
+// app 启动时一次性注册（路径替换成你自己的字体文件 URI）
+font.registerFont({ familyName: 'OFD-Fallback', familySrc: 'file:///data/.../source-han-serif.ttf' });
+OFDRenderer.setFallbackFontFamily('OFD-Fallback');
+```
+
+之后所有没嵌入字体的 OFD 文字都会优先用 `OFD-Fallback`，串到原 fallback 链最前面。本库本身**不打包任何字体**，由调用方按需提供。
+
 ## API 概览
 
 | 入口 | 作用 |
