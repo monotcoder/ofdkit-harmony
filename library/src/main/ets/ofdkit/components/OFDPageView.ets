@@ -35,6 +35,9 @@ export struct OFDPageView {
   // 缩略图模式：禁用所有手势 + 文字选区。给 OFDThumbnailStrip 嵌入用。
   // 容器宽度由父级决定（不强制 100%）。
   thumbnailMode: boolean = false;
+  // 嵌入模式：给 OFDDocumentScroll 这类外层有滚动的容器使用。
+  // 禁用 Pan/Pinch/Swipe（避免跟外层滚动冲突），保留长按文字选中。
+  embedded: boolean = false;
   @State private scaleVal: number = 1.0;
   @State private offsetX: number = 0;
   @State private offsetY: number = 0;
@@ -66,9 +69,54 @@ export struct OFDPageView {
   build() {
     if (this.thumbnailMode) {
       this.buildThumbnail();
+    } else if (this.embedded) {
+      this.buildEmbedded();
     } else {
       this.buildInteractive();
     }
+  }
+
+  // 嵌入模式：只保留长按文字选中 + 浮动按钮，不挂 Pan/Pinch/Swipe，把滚动让给外层 List/Scroll。
+  @Builder
+  private buildEmbedded(): void {
+    Stack() {
+      Canvas(this.context)
+        .width('100%')
+        .aspectRatio(this.pageAspect())
+        .backgroundColor('#FFFFFF')
+        .onReady(() => {
+          this.canvasReady = true;
+          this.renderIfReady();
+        })
+
+      if (this.selectMode) {
+        Row() {
+          Text(`复制 ${this.selectedTextLength} 字符`)
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+          Text('  ✕')
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .opacity(0.7)
+            .onClick(() => this.clearSelection())
+        }
+        .padding({ left: 16, right: 12, top: 10, bottom: 10 })
+        .backgroundColor('#2196F3')
+        .borderRadius(20)
+        .shadow({ radius: 8, color: '#33000000', offsetY: 2 })
+        .position({ top: 16 })
+        .zIndex(10)
+        .onClick(() => this.copySelection())
+      }
+    }
+    .width('100%')
+    .alignContent(Alignment.Top)
+    .priorityGesture(
+      LongPressGesture({ repeat: false, duration: 500 })
+        .onAction((event: GestureEvent) => {
+          this.handleLongPress(event);
+        })
+    )
   }
 
   @Builder

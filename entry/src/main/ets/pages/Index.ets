@@ -10,6 +10,7 @@ import {
   OFDPageView,
   OFDThumbnailStrip,
   OFDSearchBar,
+  OFDDocumentScroll,
   SearchController,
   SearchMatch,
   SelectionRect,
@@ -29,6 +30,9 @@ struct Index {
   @State searchActiveIndex: number = -1;
   @State searchTotalMatches: number = 0;
   @State currentPageSearchHits: SelectionRect[] = [];
+  @State continuousMode: boolean = false;
+  // 连续滚动里跳页的触发——值变化时 OFDDocumentScroll @Watch 触发 scrollToIndex。
+  @State scrollJumpIndex: number = 0;
   private searchCtrl: SearchController = new SearchController();
 
   aboutToAppear(): void {
@@ -62,6 +66,16 @@ struct Index {
     } else {
       this.currentPageSearchHits = this.searchCtrl.hitsForPage(this.selectedPageIndex);
     }
+    // 连续模式下也滚到对应页（即使 selectedPageIndex 没变，也强制重新触发）
+    if (this.continuousMode) {
+      this.scrollJumpIndex = cur.pageIndex;
+    }
+  }
+
+  // 给 OFDDocumentScroll 按页提供搜索高亮——返回闭包，连续模式下每个 ListItem 调一次
+  private hitsForPageProvider(): (pageIndex: number) => SelectionRect[] {
+    const ctrl: SearchController = this.searchCtrl;
+    return (pageIndex: number): SelectionRect[] => ctrl.hitsForPage(pageIndex);
   }
 
   private searchNext(): void {
@@ -175,26 +189,54 @@ struct Index {
         .fontSize(16)
         .fontWeight(FontWeight.Bold)
 
-      // 搜索栏（开启时显示在预览顶部）
-      if (this.searchOpen) {
-        OFDSearchBar({
-          query: this.searchQuery,
-          activeIndex: this.searchActiveIndex,
-          totalMatches: this.searchTotalMatches,
-          onQuerySubmit: (q: string) => this.doSearch(q),
-          onPrev: () => this.searchPrev(),
-          onNext: () => this.searchNext(),
-          onClose: () => this.closeSearch()
-        })
-      } else {
-        Button('搜索文字')
-          .fontSize(14)
-          .onClick(() => {
-            this.searchOpen = true;
+      // 顶部工具栏：搜索栏 / 搜索按钮 + 视图模式切换
+      Row({ space: 8 }) {
+        if (this.searchOpen) {
+          OFDSearchBar({
+            query: this.searchQuery,
+            activeIndex: this.searchActiveIndex,
+            totalMatches: this.searchTotalMatches,
+            onQuerySubmit: (q: string) => this.doSearch(q),
+            onPrev: () => this.searchPrev(),
+            onNext: () => this.searchNext(),
+            onClose: () => this.closeSearch()
           })
+        } else {
+          Button('搜索')
+            .fontSize(14)
+            .onClick(() => {
+              this.searchOpen = true;
+            })
+          if (this.documentInfo!.pages.length > 1) {
+            Button(this.continuousMode ? '单页模式' : '连续滚动')
+              .fontSize(14)
+              .onClick(() => {
+                this.continuousMode = !this.continuousMode;
+                if (this.continuousMode) {
+                  this.scrollJumpIndex = this.selectedPageIndex;
+                }
+              })
+          }
+        }
       }
+      .width('100%')
 
-      if (this.selectedPageIndex < this.documentInfo!.pages.length) {
+      if (this.continuousMode) {
+        // 连续滚动模式：纵向 List 一口气看所有页
+        Column() {
+          OFDDocumentScroll({
+            pages: this.documentInfo!.pages,
+            scrollToIndex: this.scrollJumpIndex,
+            hitsByPage: this.hitsForPageProvider(),
+            onVisiblePageChange: (index: number) => {
+              this.selectedPageIndex = index;
+            }
+          })
+        }
+        .height(600)
+        .width('100%')
+      } else if (this.selectedPageIndex < this.documentInfo!.pages.length) {
+        // 单页模式：保留侧滑、缩放、长按选中、缩略图条
         OFDPageView({
           page: this.documentInfo!.pages[this.selectedPageIndex],
           searchHits: this.currentPageSearchHits,
@@ -210,7 +252,6 @@ struct Index {
           }
         })
 
-        // 多页时显示缩略图条
         if (this.documentInfo!.pages.length > 1) {
           OFDThumbnailStrip({
             pages: this.documentInfo!.pages,
