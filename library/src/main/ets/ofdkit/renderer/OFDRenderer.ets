@@ -43,6 +43,14 @@ export interface ObjectRendererExt {
   render(obj: CustomPageObject, ctx: CanvasRenderingContext2D, context: RenderContext): void;
 }
 
+// 文字选区高亮矩形，OFD 物理坐标系（mm）。
+export interface SelectionRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export class OFDRenderer {
   private static customRenderers: Map<string, ObjectRendererExt> = new Map<string, ObjectRendererExt>();
   // 全局兜底字体 family。OFD 文件没嵌入 FontFile 时，文字会落到这个 family；
@@ -71,9 +79,16 @@ export class OFDRenderer {
   // 当前页 px/mm 换算系数，渲染时更新。
   // HarmonyOS Canvas 中 ctx.font 的字号是绝对 vp，不跟 ctx.scale 变换，所以字号需要单独乘 pxPerMm。
   private pxPerMm: number = 1;
+  // 文字选区高亮矩形（OFD 物理坐标 mm）。renderPage 末尾叠加画半透明蓝色。
+  private selectionRects: SelectionRect[] = [];
 
   setResources(resources: RenderResources | undefined): void {
     this.renderResources = resources;
+  }
+
+  // 设置文字选区高亮矩形（OFD 物理坐标 mm）。传空数组清除。
+  setSelectionRects(rects: SelectionRect[]): void {
+    this.selectionRects = rects;
   }
 
   renderPage(page: OFDPage, ctx: CanvasRenderingContext2D): void {
@@ -96,6 +111,15 @@ export class OFDRenderer {
     ctx.save();
     ctx.scale(this.pxPerMm, this.pxPerMm);
     page.content.layers.forEach((layer: Layer) => this.renderLayer(layer, ctx));
+
+    // 选区高亮叠加：还在 mm 坐标空间内，直接按 mm 画半透明蓝色矩形。
+    if (this.selectionRects.length > 0) {
+      ctx.fillStyle = 'rgba(33, 150, 243, 0.30)';
+      this.selectionRects.forEach((r: SelectionRect) => {
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+      });
+    }
+
     ctx.restore();
 
     console.info(`[ofdkit] 页面 ${page.pageIndex + 1} 渲染完成`);
