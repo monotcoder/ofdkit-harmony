@@ -88,6 +88,40 @@ export class OFDRenderer {
     console.info(`[ofdkit] 页面 ${page.pageIndex + 1} 渲染完成`);
   }
 
+  // 嵌入渲染：把 page 画到调用方已 translate 到的局部坐标系内 (0,0)-(boundsW,boundsH) mm。
+  // 用于矢量印章等"OFD 套 OFD"场景：印章 picture.data 解析后是一个完整 OFD，要按印章 boundary 缩放渲染。
+  // 与 renderPage 的区别：不 clearRect、不画白底、不动外层 transform，调用方负责 save/restore。
+  // outerPxPerMm 是外层 Canvas 当前 1mm 对应的物理像素数（OFD 字号是 mm，但 ctx.font 不跟随 ctx.scale，
+  //   所以 renderText 必须知道最终 1mm 等于多少像素才能算字号）。
+  renderEmbedded(
+    page: OFDPage,
+    ctx: CanvasRenderingContext2D,
+    boundsW: number,
+    boundsH: number,
+    outerPxPerMm: number
+  ): void {
+    if (page.content === undefined) {
+      return;
+    }
+    if (page.physicalBox.width <= 0 || page.physicalBox.height <= 0) {
+      return;
+    }
+    const sx: number = boundsW / page.physicalBox.width;
+    const sy: number = boundsH / page.physicalBox.height;
+    const previousPxPerMm: number = this.pxPerMm;
+    // 缩放后 1mm（印章内部坐标）= sx mm（外层局部坐标）= sx * outerPxPerMm 像素。
+    // 印章内坐标在多数情况下 sx≈sy（保持等比），renderText 字号用 sx 做依据。
+    this.pxPerMm = outerPxPerMm * sx;
+    ctx.save();
+    ctx.scale(sx, sy);
+    try {
+      page.content.layers.forEach((layer: Layer) => this.renderLayer(layer, ctx));
+    } finally {
+      ctx.restore();
+      this.pxPerMm = previousPxPerMm;
+    }
+  }
+
   private renderLayer(layer: Layer, ctx: CanvasRenderingContext2D): void {
     // Layer.DrawParam 作为层级默认值传给子对象。OFD 标准里发票常把整层颜色挂 Layer 上，子对象省略。
     layer.objects.forEach((obj: PageObject) => this.renderObject(obj, ctx, layer.drawParam));
