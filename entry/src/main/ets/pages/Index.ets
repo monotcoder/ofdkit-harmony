@@ -8,6 +8,7 @@ import {
   Layer,
   FileUtils,
   OFDPageView,
+  OFDThumbnailStrip,
   installDefaultExtensions
 } from 'ofdkit-harmony';
 
@@ -128,6 +129,17 @@ struct Index {
             }
           }
         })
+
+        // 多页时显示缩略图条
+        if (this.documentInfo!.pages.length > 1) {
+          OFDThumbnailStrip({
+            pages: this.documentInfo!.pages,
+            currentIndex: this.selectedPageIndex,
+            onPageSelect: (index: number) => {
+              this.selectedPageIndex = index;
+            }
+          })
+        }
       }
 
       Row({ space: 8 }) {

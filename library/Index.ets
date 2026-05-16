@@ -5,5 +5,6 @@ export * from './src/main/ets/ofdkit';
 export { FileUtils } from './src/main/ets/ofdkit/utils/FileUtils';
 export { ZipUtils } from './src/main/ets/ofdkit/utils/ZipUtils';
 export { OFDPageView } from './src/main/ets/ofdkit/components/OFDPageView';
+export { OFDThumbnailStrip } from './src/main/ets/ofdkit/components/OFDThumbnailStrip';
 export { XmlNode, XmlParser } from './src/main/ets/ofdkit/utils/XmlParser';
 export { ParseHelpers } from './src/main/ets/ofdkit/parser/ParseHelpers';

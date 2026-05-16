@@ -29,6 +29,9 @@ export struct OFDPageView {
   // 横向快速划动切页（手指右→左：下一页；左→右：上一页）。仅在未缩放且未选中文字时触发。
   onSwipeNext?: () => void;
   onSwipePrev?: () => void;
+  // 缩略图模式：禁用所有手势 + 文字选区。给 OFDThumbnailStrip 嵌入用。
+  // 容器宽度由父级决定（不强制 100%）。
+  thumbnailMode: boolean = false;
   @State private scaleVal: number = 1.0;
   @State private offsetX: number = 0;
   @State private offsetY: number = 0;
@@ -56,6 +59,28 @@ export struct OFDPageView {
   }
 
   build() {
+    if (this.thumbnailMode) {
+      this.buildThumbnail();
+    } else {
+      this.buildInteractive();
+    }
+  }
+
+  @Builder
+  private buildThumbnail(): void {
+    // 缩略图模式：纯渲染 + 无手势 + 无选区按钮。父容器决定尺寸。
+    Canvas(this.context)
+      .width('100%')
+      .aspectRatio(this.pageAspect())
+      .backgroundColor('#FFFFFF')
+      .onReady(() => {
+        this.canvasReady = true;
+        this.renderIfReady();
+      })
+  }
+
+  @Builder
+  private buildInteractive(): void {
     Stack() {
       Canvas(this.context)
         .width('100%')
