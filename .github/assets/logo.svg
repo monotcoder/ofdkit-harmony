@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <!-- 外圆环 -->
+  <circle cx="120" cy="120" r="104" fill="none" stroke="#B22222" stroke-width="10"/>
+  <!-- 内细圈（中国传统公章双圈意象） -->
+  <circle cx="120" cy="120" r="88" fill="none" stroke="#B22222" stroke-width="2"/>
+  <!-- OFD 字样 -->
+  <text x="120" y="148" text-anchor="middle" fill="#B22222"
+        font-family="'Times New Roman', serif" font-weight="900"
+        font-size="74" letter-spacing="2">OFD</text>
+</svg>

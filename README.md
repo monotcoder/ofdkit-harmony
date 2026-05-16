@@ -1,4 +1,16 @@
-# ofdkit-harmony
+<p align="center">
+  <img src=".github/assets/logo.svg" alt="ofdkit-harmony" width="160"/>
+</p>
+
+<h1 align="center">ofdkit-harmony</h1>
+
+<p align="center">
+  <a href="https://gitee.com/notcoder/ofdkit-harmony/releases"><img src="https://img.shields.io/badge/version-v0.1.0-2E7D32.svg" alt="version"/></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="license"/></a>
+  <img src="https://img.shields.io/badge/HarmonyOS-NEXT%206.1+-000000.svg" alt="HarmonyOS"/>
+  <img src="https://img.shields.io/badge/ArkTS-pure-7E57C2.svg" alt="ArkTS"/>
+  <img src="https://img.shields.io/badge/GB%2FT-33190--2016-C0282C.svg" alt="GB/T 33190-2016"/>
+</p>
 
 HarmonyOS NEXT 上的原生 OFD 阅读库，纯 ArkTS 实现，遵循 GB/T 33190-2016。
 
