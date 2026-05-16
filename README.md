@@ -134,6 +134,14 @@ struct Reader {
 
 Pro 版不修改开源版代码，依赖单向（pro → opensource）。所有 Pro 能力都通过开源版定义的扩展点 API 实现——你也可以用同一套机制接入自研的验签 / 转换 / 表单实现。
 
+## 商务合作
+
+Pro 版试用、定价、定制开发、技术咨询，欢迎扫码加微信：
+
+<p align="center">
+  <img src=".github/assets/wechat-qr.jpg" alt="作者微信" width="200"/>
+</p>
+
 ## 协议
 
 Apache License 2.0。Copyright 2026-present Mo and contributors.
