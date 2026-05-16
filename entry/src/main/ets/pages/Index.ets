@@ -9,6 +9,10 @@ import {
   FileUtils,
   OFDPageView,
   OFDThumbnailStrip,
+  OFDSearchBar,
+  SearchController,
+  SearchMatch,
+  SelectionRect,
   installDefaultExtensions
 } from 'ofdkit-harmony';
 
@@ -18,11 +22,67 @@ struct Index {
   @State message: string = '请选择一个 OFD 文件';
   @State errorMessage: string = '';
   @State documentInfo: OFDDocument | undefined = undefined;
-  @State selectedPageIndex: number = 0;
+  @State @Watch('onPageIndexChanged') selectedPageIndex: number = 0;
   @State showPreview: boolean = false;
+  @State searchOpen: boolean = false;
+  @State searchQuery: string = '';
+  @State searchActiveIndex: number = -1;
+  @State searchTotalMatches: number = 0;
+  @State currentPageSearchHits: SelectionRect[] = [];
+  private searchCtrl: SearchController = new SearchController();
 
   aboutToAppear(): void {
     installDefaultExtensions();
+  }
+
+  private onPageIndexChanged(): void {
+    // 切页时刷新当前页的搜索高亮（active 也可能跟着跳）
+    this.currentPageSearchHits = this.searchCtrl.hitsForPage(this.selectedPageIndex);
+  }
+
+  private doSearch(q: string): void {
+    if (this.documentInfo === undefined) {
+      return;
+    }
+    this.searchQuery = q;
+    this.searchCtrl.search(q, this.documentInfo.pages);
+    this.searchTotalMatches = this.searchCtrl.matches.length;
+    this.searchActiveIndex = this.searchCtrl.activeIndex;
+    this.jumpToActiveMatch();
+  }
+
+  private jumpToActiveMatch(): void {
+    const cur: SearchMatch | undefined = this.searchCtrl.current();
+    if (cur === undefined) {
+      this.currentPageSearchHits = [];
+      return;
+    }
+    if (this.selectedPageIndex !== cur.pageIndex) {
+      this.selectedPageIndex = cur.pageIndex;  // 触发 onPageIndexChanged → 刷新 hits
+    } else {
+      this.currentPageSearchHits = this.searchCtrl.hitsForPage(this.selectedPageIndex);
+    }
+  }
+
+  private searchNext(): void {
+    this.searchCtrl.next();
+    this.searchActiveIndex = this.searchCtrl.activeIndex;
+    this.jumpToActiveMatch();
+  }
+
+  private searchPrev(): void {
+    this.searchCtrl.prev();
+    this.searchActiveIndex = this.searchCtrl.activeIndex;
+    this.jumpToActiveMatch();
+  }
+
+  private closeSearch(): void {
+    this.searchOpen = false;
+    this.searchCtrl.clear();
+    this.searchQuery = '';
+    this.searchActiveIndex = -1;
+    this.searchTotalMatches = 0;
+    this.currentPageSearchHits = [];
   }
 
   build() {
@@ -115,9 +175,29 @@ struct Index {
         .fontSize(16)
         .fontWeight(FontWeight.Bold)
 
+      // 搜索栏（开启时显示在预览顶部）
+      if (this.searchOpen) {
+        OFDSearchBar({
+          query: this.searchQuery,
+          activeIndex: this.searchActiveIndex,
+          totalMatches: this.searchTotalMatches,
+          onQuerySubmit: (q: string) => this.doSearch(q),
+          onPrev: () => this.searchPrev(),
+          onNext: () => this.searchNext(),
+          onClose: () => this.closeSearch()
+        })
+      } else {
+        Button('搜索文字')
+          .fontSize(14)
+          .onClick(() => {
+            this.searchOpen = true;
+          })
+      }
+
       if (this.selectedPageIndex < this.documentInfo!.pages.length) {
         OFDPageView({
           page: this.documentInfo!.pages[this.selectedPageIndex],
+          searchHits: this.currentPageSearchHits,
           onSwipeNext: () => {
             if (this.selectedPageIndex < this.documentInfo!.pages.length - 1) {
               this.selectedPageIndex++;

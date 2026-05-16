@@ -26,6 +26,9 @@ const MAX_SCALE: number = 5.0;
 @Component
 export struct OFDPageView {
   @Prop @Watch('onPageChanged') page: OFDPage;
+  // 搜索命中矩形（来自父组件 SearchController），跟文字选区一起合并推给 renderer。
+  // 父级每次更新搜索状态时应传新数组引用以触发 @Watch。
+  @Prop @Watch('onSearchHitsChanged') searchHits: SelectionRect[] = [];
   // 横向快速划动切页（手指右→左：下一页；左→右：上一页）。仅在未缩放且未选中文字时触发。
   onSwipeNext?: () => void;
   onSwipePrev?: () => void;
@@ -38,6 +41,8 @@ export struct OFDPageView {
   @State private selectMode: boolean = false;
   @State private selectedTextLength: number = 0;
   private selectedText: string = '';
+  // 文字选区高亮矩形（独立于搜索结果），合并到 selection rects 里推给 renderer。
+  private currentSelectionRect: SelectionRect | undefined = undefined;
   private baseScale: number = 1.0;
   private baseOffsetX: number = 0;
   private baseOffsetY: number = 0;
@@ -209,17 +214,25 @@ export struct OFDPageView {
     this.selectedText = seg.text;
     this.selectedTextLength = seg.text.length;
     this.selectMode = true;
-    const rect: SelectionRect = { x: seg.boundaryX, y: seg.boundaryY, w: seg.boundaryW, h: seg.boundaryH };
-    this.renderer.setSelectionRects([rect]);
-    this.renderIfReady();
+    this.currentSelectionRect = { x: seg.boundaryX, y: seg.boundaryY, w: seg.boundaryW, h: seg.boundaryH, type: 'selection' };
+    this.applyRects();
   }
 
   private clearSelection(): void {
     this.selectMode = false;
     this.selectedText = '';
     this.selectedTextLength = 0;
-    this.renderer.setSelectionRects([]);
+    this.currentSelectionRect = undefined;
+    this.applyRects();
+  }
+
+  // 合并搜索 hits 和当前选区矩形 → 触发重绘。
+  private applyRects(): void {
     this.renderIfReady();
+  }
+
+  private onSearchHitsChanged(): void {
+    this.applyRects();
   }
 
   private copySelection(): void {
@@ -294,11 +307,26 @@ export struct OFDPageView {
     } else {
       this.renderer.setResources(undefined);
     }
+    // 每次重绘前同步选区/搜索矩形——避免在 applyRects 各处零散调用
+    this.renderer.setSelectionRects(this.combineRects());
     try {
       this.renderer.renderPage(this.page, this.context);
     } catch (error) {
       console.error(`[ofdkit] 渲染页面失败：${error}`);
     }
+  }
+
+  private combineRects(): SelectionRect[] {
+    const rects: SelectionRect[] = [];
+    if (this.searchHits !== undefined) {
+      for (let i: number = 0; i < this.searchHits.length; i++) {
+        rects.push(this.searchHits[i]);
+      }
+    }
+    if (this.currentSelectionRect !== undefined) {
+      rects.push(this.currentSelectionRect);
+    }
+    return rects;
   }
 
   private async preloadResources(): Promise<void> {

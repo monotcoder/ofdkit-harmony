@@ -16,6 +16,7 @@ import {
   CompositeBlock,
   Layer
 } from '../parser/types';
+import { SelectionRect } from '../renderer/OFDRenderer';
 
 // 单个字符的位置盒子。x/y 是字符 *top-left* 在 OFD 物理坐标系（mm）的位置。
 export interface CharBox {
@@ -71,6 +72,47 @@ export class CharBoxIndex {
 
   getSegment(id: string): TextSegment | undefined {
     return this.segments.get(id);
+  }
+
+  // 搜索：返回所有匹配的合并 bounding box。不区分大小写，CJK 直接相等比较。
+  // 简化：在 charBoxes 数组上滑窗匹配；跨段匹配虽然可能产生大矩形，但发票场景里短关键字基本落在同段内。
+  search(query: string): SelectionRect[] {
+    const hits: SelectionRect[] = [];
+    if (query.length === 0) {
+      return hits;
+    }
+    const chars: string[] = Array.from(query.toLowerCase());
+    const n: number = chars.length;
+    for (let i: number = 0; i + n <= this.charBoxes.length; i++) {
+      let matched: boolean = true;
+      for (let j: number = 0; j < n; j++) {
+        if (this.charBoxes[i + j].char.toLowerCase() !== chars[j]) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) {
+        let minX: number = Infinity;
+        let minY: number = Infinity;
+        let maxX: number = -Infinity;
+        let maxY: number = -Infinity;
+        for (let j: number = 0; j < n; j++) {
+          const cb = this.charBoxes[i + j];
+          if (cb.x < minX) minX = cb.x;
+          if (cb.y < minY) minY = cb.y;
+          if (cb.x + cb.w > maxX) maxX = cb.x + cb.w;
+          if (cb.y + cb.h > maxY) maxY = cb.y + cb.h;
+        }
+        hits.push({
+          x: minX,
+          y: minY,
+          w: maxX - minX,
+          h: maxY - minY,
+          type: 'search-passive'
+        });
+      }
+    }
+    return hits;
   }
 
   private walk(objects: PageObject[], offX: number, offY: number): void {

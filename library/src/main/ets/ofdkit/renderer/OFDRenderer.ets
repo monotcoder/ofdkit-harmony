@@ -43,12 +43,15 @@ export interface ObjectRendererExt {
   render(obj: CustomPageObject, ctx: CanvasRenderingContext2D, context: RenderContext): void;
 }
 
-// 文字选区高亮矩形，OFD 物理坐标系（mm）。
+// 文字选区/搜索高亮矩形，OFD 物理坐标系（mm）。
+// type 区分填充色：selection=蓝、search-active=橙、search-passive=黄。
+export type SelectionRectType = 'selection' | 'search-active' | 'search-passive';
 export interface SelectionRect {
   x: number;
   y: number;
   w: number;
   h: number;
+  type?: SelectionRectType;
 }
 
 export class OFDRenderer {
@@ -112,10 +115,17 @@ export class OFDRenderer {
     ctx.scale(this.pxPerMm, this.pxPerMm);
     page.content.layers.forEach((layer: Layer) => this.renderLayer(layer, ctx));
 
-    // 选区高亮叠加：还在 mm 坐标空间内，直接按 mm 画半透明蓝色矩形。
+    // 选区/搜索高亮叠加：按 type 上不同颜色，仍在 mm 坐标空间内。
     if (this.selectionRects.length > 0) {
-      ctx.fillStyle = 'rgba(33, 150, 243, 0.30)';
       this.selectionRects.forEach((r: SelectionRect) => {
+        const t: SelectionRectType = r.type !== undefined ? r.type : 'selection';
+        if (t === 'search-active') {
+          ctx.fillStyle = 'rgba(255, 152, 0, 0.55)';  // 橙 - 当前搜索匹配
+        } else if (t === 'search-passive') {
+          ctx.fillStyle = 'rgba(255, 235, 59, 0.40)'; // 黄 - 其它搜索匹配
+        } else {
+          ctx.fillStyle = 'rgba(33, 150, 243, 0.30)'; // 蓝 - 文字选区
+        }
         ctx.fillRect(r.x, r.y, r.w, r.h);
       });
     }
