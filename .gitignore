@@ -15,3 +15,8 @@
 **/.DS_Store
 **/BuildProfile.ets
 /.claude/settings.local.json
+/articles
+# library/ 下的这三个文件由 library/hvigorfile.ts 在 build 前从根目录自动同步，无需入仓
+/library/LICENSE
+/library/README.md
+/library/CHANGELOG.md
