@@ -2,6 +2,30 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+> 待发布版本（计划作为 v0.2.0 发出）。
+
+### 新增
+
+- **跨页全文搜索**：新增 `SearchController` + `OFDSearchBar`，跨页扫描所有文字、上一个/下一个跳转、命中实时高亮（当前命中 / 其他命中两种态）
+- **多页连续滚动视图**：新增 `OFDDocumentScroll` 组件，纵向 List 承载所有页 + 搜索高亮透传 + 可见页回调
+- **多页缩略图条**：新增 `OFDThumbnailStrip` 组件，横向滚动缩略图 + 点击跳页 + 当前页高亮
+- **长按选中文字 → 复制**：`OFDPageView` 内置长按手势，段落级选区，一键复制到剪贴板（v1）
+- **侧滑切页**：单页视图支持左右滑动翻页
+- **路径圆弧**：`AbbreviatedData` 的 `A` 命令（圆弧）解析与渲染
+- **全局兜底字体 API**：`OFDRenderer.setFallbackFontFamily()`，给没嵌入字体的 OFD 文档统一注入兜底字体
+
+### 修复
+
+- 长按选区索引按段落内部 key 而非全局 segment 索引，避免跨段错位
+- `LongPressGesture` 改用 `priorityGesture` 独立识别，不再被 `PanGesture` 抢占
+- `DeltaX` 数组短于字符数时自动重复最后一个值；负 `DeltaX` 不被自然宽度兜底覆盖（修密码区多行布局）
+
+### 工程
+
+- `OFDPageView` 新增 `searchHits` / `embedded` / `thumbnailMode` 三个 prop，复用同一渲染管线服务"主视图 / 嵌入滚动 / 缩略图"三种场景
+
 ## [0.1.0] - 2026-05-16
 
 首个公开版本。

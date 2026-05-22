@@ -17,14 +17,64 @@
 </p>
 
 <p align="center">
-  <sub>电子发票渲染 + 国密印章验签。印章效果由商业版 <a href="#与商业版的分工"><code>ofdkit-harmony-pro</code></a> 提供；开源版负责解析、渲染与扩展点框架。</sub>
+  <sub>电子发票渲染 + 跨页全文搜索 + 长按选中复制 + 国密印章验签。印章效果由商业版 <a href="#pro"><code>ofdkit-harmony-pro</code></a> 提供；开源版负责解析、渲染、交互与扩展点框架。</sub>
 </p>
 
-HarmonyOS NEXT 上的原生 OFD 阅读库，纯 ArkTS 实现，遵循 GB/T 33190-2016。
+HarmonyOS NEXT 上首个开源的原生 OFD 阅读库，纯 ArkTS 实现，遵循 GB/T 33190-2016。
 
-电子发票、电子公文、电子合同等 OFD 场景都能直接在鸿蒙原生应用里打开，无需 WebView、无需 JNI。
+电子发票、电子公文、电子合同等 OFD 场景都能直接在鸿蒙原生应用里打开，**无需 WebView、无需 JNI、无需第三方 SDK**。
 
-> 国密签章验签、印章绘制等付费能力由商业版 [`ofdkit-harmony-pro`](#与商业版的分工) 通过开源扩展点接入。
+> 国密签章验签、印章绘制等付费能力由商业版 [`ofdkit-harmony-pro`](#pro) 通过开源扩展点接入。
+
+## 亮点
+
+- 🚀 **鸿蒙原生**：纯 ArkTS / ArkUI，零 WebView 零 JNI，包体积小、启动快
+- 🔍 **跨页全文搜索**：命中实时高亮、上下条跳转、跨页连续定位
+- 📜 **多页连续滚动 + 缩略图条**：一屏滚完整本文档，缩略图点击秒切页
+- ✍️ **长按选中复制**：段落级文字选区，一键复制到剪贴板
+- 🛡️ **国密签章验签 + 红章渲染**（[Pro](#pro-overview)）：SM2/SM3 验签 + 光栅 / 矢量印章绘制 + 5 级状态可视化
+- 🧩 **扩展点架构**：解析、渲染、文档级三类扩展点，验签 / 转换 / 表单都可自研接入
+- 📐 **遵循国标**：GB/T 33190-2016（OFD）+ GB/T 35275-2017（国密签章）
+
+<a id="pro-overview"></a>
+
+## 📦 完整电子发票方案：开源 + Pro
+
+OFD 在国内的主战场是**电子发票、电子公文、电子合同**——这些场景的共同点是 **OFD 文件里都带国密签章**。开源版负责把文档打开、文字搜出来、红章占位标出来；想真正让红章显示出来 + 验签状态展示给用户看，需要配合闭源商业版 [`ofdkit-harmony-pro`](#pro)。
+
+<table align="center">
+  <tr>
+    <td align="center" width="50%">
+      <img src=".github/assets/render-opensource.png" alt="开源版渲染（红章为占位）"/>
+      <br/>
+      <sub><b>开源版</b>：红章为虚线占位框</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src=".github/assets/render-pro.png" alt="Pro 版渲染（红章完整 + 国密验签）"/>
+      <br/>
+      <sub><b>Pro 版</b>：红章完整渲染 + 国密验签</sub>
+    </td>
+  </tr>
+</table>
+
+| 能力 | 开源版 | Pro 版 |
+|---|:---:|:---:|
+| 打开 / 解析 / 渲染 OFD 文档 | ✅ | ✅ |
+| 多页连续滚动 + 缩略图 + 全文搜索 | ✅ | ✅ |
+| 长按选中文字复制 | ✅ | ✅ |
+| 签章占位（灰色矩形） | ✅ | — |
+| **国密 SM2/SM3 签章验签** | ❌ | ✅ |
+| **Reference 文件 SM3 完整性校验** | ❌ | ✅ |
+| **SignedInfo dataHash 摘要校验** | ❌ | ✅ |
+| **光栅印章绘制**（PNG/JPG/GIF/BMP）| ❌ | ✅ |
+| **矢量印章渲染**（type='OFD' 嵌入 OFD）| ❌ | ✅ |
+| **5 级验签状态视觉化**（valid/invalid/tampered/error/unknown）| ❌ | ✅ |
+| OFD ↔ PDF 转换 | ❌ | 🚧 规划中 |
+| 表单填充（CT_FormFile） | ❌ | 🚧 规划中 |
+
+> 接入只需一行代码：`installProExtensions()`。无需修改开源版代码、无需改业务逻辑，Pro 自动通过扩展点覆盖签章渲染。详见下方 [Pro 接入说明](#pro)。
+>
+> 试用 / 报价 / 定制 → 见文末 [商务合作](#商务合作) 微信扫码。
 
 ## 仓库
 
@@ -43,15 +93,24 @@ Issue / PR / 讨论请到 Gitee 主仓。
 
 **渲染**
 - 文字（DeltaX/DeltaY 逐字定位、HScale、italic、weight）
-- 路径（直线、二次/三次贝塞尔、闭合）
+- 路径（直线、二次/三次贝塞尔、闭合、圆弧 `A` 命令）
 - 图片（嵌入资源解码到 PixelMap 后 Canvas 直绘）
-- 嵌入字体注册到系统字体表
+- 嵌入字体注册到系统字体表 + 全局兜底字体 API
 - 矢量绘制参数（DrawParam）继承链
 
 **交互**
 - 双指捏合缩放（0.5x ~ 5x）
 - 单指拖动平移
 - 双击复位
+- 侧滑切页（左右滑动翻页）
+- **多页连续滚动**（`OFDDocumentScroll`，一屏滚完整本文档）
+- **缩略图条切页**（`OFDThumbnailStrip`，横向滚动 + 点击跳页）
+- **长按选中文字 → 复制**（段落级选区 + 一键复制到剪贴板）
+
+**搜索**
+- **跨页全文搜索**（`SearchController` + `OFDSearchBar`）
+- 命中实时高亮（当前匹配 / 其他匹配两种态）
+- 上一个 / 下一个跳转，跨页连续定位
 
 **扩展**
 - 自定义对象解析 / 渲染 / 文档级扩展三类扩展点
@@ -61,13 +120,11 @@ Issue / PR / 讨论请到 Gitee 主仓。
 
 | 能力 | 说明 |
 |---|---|
-| 国密 SM2/SM3 签章验签 | 由 [Pro 版](#与商业版的分工) 提供 |
+| 国密 SM2/SM3 签章验签 | 由 [Pro 版](#pro) 提供 |
 | 印章图像绘制（光栅 / 矢量） | 由 Pro 版提供 |
 | OFD ↔ PDF 转换 | 由 Pro 版提供（规划中）|
-| 路径圆弧（AbbreviatedData `A` 命令）| 未实现 |
 | CMYK / Pattern / Gradient 颜色空间 | 当前按 RGB 处理 |
 | 表单填充（CT_FormFile） | 未实现 |
-| 文字选择 / 复制 | 未实现 |
 
 ## 环境要求
 
@@ -126,24 +183,130 @@ OFDRenderer.setFallbackFontFamily('OFD-Fallback');
 | 入口 | 作用 |
 |---|---|
 | `OFDParser` | 解压 + 解析 OFD 包，返回 `OFDDocument`（含多页 + 资源索引）|
-| `OFDPageView` | ArkUI Canvas 组件，渲染单页 + 内置手势 |
-| `OFDRenderer` | 底层渲染器；`renderEmbedded` 给"OFD 套 OFD"场景 |
+| `OFDPageView` | ArkUI Canvas 组件，渲染单页 + 内置手势 / 长按选中复制 |
+| `OFDDocumentScroll` | 多页连续滚动视图（纵向 List + 每页 `OFDPageView`）|
+| `OFDThumbnailStrip` | 横向缩略图条，点击跳页 |
+| `OFDSearchBar` | 搜索栏 UI（输入框 + 上/下匹配 + 计数）|
+| `SearchController` | 跨页全文搜索控制器（`search` / `next` / `prev` / `hitsForPage`）|
+| `OFDRenderer` | 底层渲染器；`renderEmbedded` 给"OFD 套 OFD"场景；`setFallbackFontFamily` 全局兜底字体 |
 | `installDefaultExtensions()` | 一键安装内置扩展 |
 | `ObjectParserExt` / `ObjectRendererExt` / `DocumentExtension` | 三类扩展点接口 |
 | `CustomPageObject` | 扩展用的自定义页面对象类型 |
 
 详细的扩展开发引导见 [EXTENSIONS.md](./EXTENSIONS.md)。
 
-## 与商业版的分工
+### 组合：连续滚动 + 缩略图 + 全文搜索
 
-[`ofdkit-harmony-pro`](https://gitee.com/notcoder/ofdkit-harmony-pro) 闭源商业版通过本仓库的扩展点接入：
+```typescript
+import {
+  OFDDocumentScroll,
+  OFDThumbnailStrip,
+  OFDSearchBar,
+  SearchController,
+  SelectionRect
+} from 'ofdkit-harmony';
 
-- 国密 SM2/SM3 签章验签
-- Reference 文件完整性校验
-- 光栅印章（PNG/JPG）绘制
-- 矢量印章（type='OFD'）嵌入 OFD 渲染
+@Component
+struct Reader {
+  @State doc: OFDDocument = ...;
+  @State currentPage: number = 0;
+  @State scrollTarget: number = 0;
+  @State query: string = '';
+  @State activeIndex: number = -1;
+  @State totalMatches: number = 0;
+  private search: SearchController = new SearchController();
 
-Pro 版不修改开源版代码，依赖单向（pro → opensource）。所有 Pro 能力都通过开源版定义的扩展点 API 实现——你也可以用同一套机制接入自研的验签 / 转换 / 表单实现。
+  build() {
+    Column() {
+      OFDSearchBar({
+        query: this.query,
+        activeIndex: this.activeIndex,
+        totalMatches: this.totalMatches,
+        onQuerySubmit: (q: string) => {
+          this.search.search(q, this.doc.pages);
+          this.activeIndex = this.search.activeIndex;
+          this.totalMatches = this.search.matches.length;
+          const cur = this.search.current();
+          if (cur !== undefined) this.scrollTarget = cur.pageIndex;
+        },
+        onNext: () => {
+          const m = this.search.next();
+          this.activeIndex = this.search.activeIndex;
+          if (m !== undefined) this.scrollTarget = m.pageIndex;
+        },
+        onPrev: () => {
+          const m = this.search.prev();
+          this.activeIndex = this.search.activeIndex;
+          if (m !== undefined) this.scrollTarget = m.pageIndex;
+        }
+      })
+
+      OFDDocumentScroll({
+        pages: this.doc.pages,
+        scrollToIndex: this.scrollTarget,
+        hitsByPage: (i: number): SelectionRect[] => this.search.hitsForPage(i),
+        onVisiblePageChange: (i: number) => { this.currentPage = i; }
+      })
+      .layoutWeight(1)
+
+      OFDThumbnailStrip({
+        pages: this.doc.pages,
+        currentIndex: this.currentPage,
+        onPageSelect: (i: number) => { this.scrollTarget = i; }
+      })
+    }
+  }
+}
+```
+
+<a id="pro"></a>
+
+## 🛡️ 与商业版的分工
+
+`ofdkit-harmony-pro` 是开源版的闭源商业扩展包，专攻**电子发票 / 公文 / 合同场景里的国密签章验签与红章渲染**——这部分能力涉及 GB/T 35275-2017、`@kit.CryptoArchitectureKit` 调用约定、各家签发工具（数科 / 福昕 / CFCA）的差异适配，自行实现成本较高。
+
+### Pro 能解锁什么
+
+**签章验签**（GB/T 35275-2017）
+- ASN.1 DER + SES_Signature 完整解析
+- SM2/SM3 签名值验证（基于鸿蒙 `@kit.CryptoArchitectureKit`）
+- Reference 文件 SM3 完整性校验
+- SignedInfo dataHash 摘要校验
+
+**印章绘制**
+- 光栅印章（PNG / JPG / GIF / BMP）解码到 PixelMap 后 Canvas 直绘
+- 矢量印章（`picture.type='OFD'`）嵌入 OFD 递归解析与渲染
+- 字体注册带命名空间，避免与主文档冲突
+
+**5 级验签状态视觉化**
+
+| 状态 | 含义 | 渲染表现 |
+|---|---|---|
+| `valid` | SM2 数学验签通过 | 印章图原样 |
+| `invalid` | 签名值与证书公钥不匹配 | 印章图 + 红色描边 + ✗ 红色角标 |
+| `tampered` | 文件被篡改 | 印章图 + 橙色描边 + ⚠ 橙色角标 |
+| `error` | DER / SM2 调用异常 | 同 invalid（能取到图也尽量展示）|
+| `unknown` | 无 SignedValue 路径 | 琥珀色虚线占位 |
+
+### 一行代码接入
+
+```typescript
+import { installDefaultExtensions } from 'ofdkit-harmony';
+import { installProExtensions } from 'ofdkit-harmony-pro';
+
+aboutToAppear(): void {
+  installDefaultExtensions();   // 先开源默认（含签章灰色占位）
+  installProExtensions();       // 再 Pro 覆盖（验签 + 印章渲染）
+}
+```
+
+之后开源版的 `OFDPageView` / `OFDDocumentScroll` 正常使用，签章会自动按状态分级显示，无需改业务代码。
+
+### 工程约定
+
+- **依赖单向**：Pro → 开源版，Pro 不修改开源版任何代码
+- **扩展点同源**：Pro 能力全部通过开源版定义的 `ObjectRendererExt` / `DocumentExtension` 接入；你也可以用同一套机制接入自研的验签 / 转换 / 表单实现
+- **试用 / 报价 / 定制开发 / 技术咨询** → 见下方 [商务合作](#商务合作)
 
 ## 商务合作
 
