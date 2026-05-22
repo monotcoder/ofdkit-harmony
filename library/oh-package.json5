@@ -1,10 +1,24 @@
 {
   "name": "ofdkit-harmony",
-  "version": "0.1.0",
-  "description": "HarmonyOS NEXT 原生 OFD 解析与渲染库（遵循 GB/T 33190-2016）",
+  "version": "0.2.0",
+  "description": "HarmonyOS NEXT 上首个开源的原生 OFD 阅读库（GB/T 33190-2016）。纯 ArkTS 实现，支持电子发票/公文/合同阅读、跨页全文搜索、多页连续滚动、长按选中复制。",
   "main": "Index.ets",
-  "author": "Mo",
+  "author": "Mo <mothought@163.com>",
   "license": "Apache-2.0",
-  "keywords": ["ofd", "harmony", "arkts", "version-document"],
+  "keywords": [
+    "ofd",
+    "ofd-reader",
+    "harmonyos",
+    "arkts",
+    "electronic-invoice",
+    "gb-t-33190",
+    "电子发票",
+    "电子公文",
+    "电子合同",
+    "鸿蒙"
+  ],
+  "repository": "https://gitee.com/notcoder/ofdkit-harmony.git",
+  "homepage": "https://gitee.com/notcoder/ofdkit-harmony",
+  "bugs": "https://gitee.com/notcoder/ofdkit-harmony/issues",
   "dependencies": {}
 }
