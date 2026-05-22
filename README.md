@@ -17,14 +17,12 @@
 </p>
 
 <p align="center">
-  <sub>电子发票渲染 + 跨页全文搜索 + 长按选中复制 + 国密印章验签。印章效果由商业版 <a href="#pro"><code>ofdkit-harmony-pro</code></a> 提供；开源版负责解析、渲染、交互与扩展点框架。</sub>
+  <sub>电子发票、电子公文、电子合同直接打开。跨页全文搜索 + 多页连续滚动 + 长按选中复制。</sub>
 </p>
 
 HarmonyOS NEXT 上首个开源的原生 OFD 阅读库，纯 ArkTS 实现，遵循 GB/T 33190-2016。
 
 电子发票、电子公文、电子合同等 OFD 场景都能直接在鸿蒙原生应用里打开，**无需 WebView、无需 JNI、无需第三方 SDK**。
-
-> 国密签章验签、印章绘制等付费能力由商业版 [`ofdkit-harmony-pro`](#pro) 通过开源扩展点接入。
 
 ## 亮点
 
@@ -32,49 +30,8 @@ HarmonyOS NEXT 上首个开源的原生 OFD 阅读库，纯 ArkTS 实现，遵�
 - 🔍 **跨页全文搜索**：命中实时高亮、上下条跳转、跨页连续定位
 - 📜 **多页连续滚动 + 缩略图条**：一屏滚完整本文档，缩略图点击秒切页
 - ✍️ **长按选中复制**：段落级文字选区，一键复制到剪贴板
-- 🛡️ **国密签章验签 + 红章渲染**（[Pro](#pro-overview)）：SM2/SM3 验签 + 光栅 / 矢量印章绘制 + 5 级状态可视化
 - 🧩 **扩展点架构**：解析、渲染、文档级三类扩展点，验签 / 转换 / 表单都可自研接入
-- 📐 **遵循国标**：GB/T 33190-2016（OFD）+ GB/T 35275-2017（国密签章）
-
-<a id="pro-overview"></a>
-
-## 📦 完整电子发票方案：开源 + Pro
-
-OFD 在国内的主战场是**电子发票、电子公文、电子合同**——这些场景的共同点是 **OFD 文件里都带国密签章**。开源版负责把文档打开、文字搜出来、红章占位标出来；想真正让红章显示出来 + 验签状态展示给用户看，需要配合闭源商业版 [`ofdkit-harmony-pro`](#pro)。
-
-<table align="center">
-  <tr>
-    <td align="center" width="50%">
-      <img src=".github/assets/render-opensource.png" alt="开源版渲染（红章为占位）"/>
-      <br/>
-      <sub><b>开源版</b>：红章为虚线占位框</sub>
-    </td>
-    <td align="center" width="50%">
-      <img src=".github/assets/render-pro.png" alt="Pro 版渲染（红章完整 + 国密验签）"/>
-      <br/>
-      <sub><b>Pro 版</b>：红章完整渲染 + 国密验签</sub>
-    </td>
-  </tr>
-</table>
-
-| 能力 | 开源版 | Pro 版 |
-|---|:---:|:---:|
-| 打开 / 解析 / 渲染 OFD 文档 | ✅ | ✅ |
-| 多页连续滚动 + 缩略图 + 全文搜索 | ✅ | ✅ |
-| 长按选中文字复制 | ✅ | ✅ |
-| 签章占位（灰色矩形） | ✅ | — |
-| **国密 SM2/SM3 签章验签** | ❌ | ✅ |
-| **Reference 文件 SM3 完整性校验** | ❌ | ✅ |
-| **SignedInfo dataHash 摘要校验** | ❌ | ✅ |
-| **光栅印章绘制**（PNG/JPG/GIF/BMP）| ❌ | ✅ |
-| **矢量印章渲染**（type='OFD' 嵌入 OFD）| ❌ | ✅ |
-| **5 级验签状态视觉化**（valid/invalid/tampered/error/unknown）| ❌ | ✅ |
-| OFD ↔ PDF 转换 | ❌ | 🚧 规划中 |
-| 表单填充（CT_FormFile） | ❌ | 🚧 规划中 |
-
-> 接入只需一行代码：`installProExtensions()`。无需修改开源版代码、无需改业务逻辑，Pro 自动通过扩展点覆盖签章渲染。详见下方 [Pro 接入说明](#pro)。
->
-> 试用 / 报价 / 定制 → 见文末 [商务合作](#商务合作) 微信扫码。
+- 📐 **遵循国标**：GB/T 33190-2016，电子发票 / 公文 / 合同样本通用
 
 ## 仓库
 
@@ -264,6 +221,21 @@ struct Reader {
 ## 🛡️ 与商业版的分工
 
 `ofdkit-harmony-pro` 是开源版的闭源商业扩展包，专攻**电子发票 / 公文 / 合同场景里的国密签章验签与红章渲染**——这部分能力涉及 GB/T 35275-2017、`@kit.CryptoArchitectureKit` 调用约定、各家签发工具（数科 / 福昕 / CFCA）的差异适配，自行实现成本较高。
+
+<table align="center">
+  <tr>
+    <td align="center" width="50%">
+      <img src=".github/assets/render-opensource.png" alt="开源版渲染（红章为占位）"/>
+      <br/>
+      <sub><b>开源版</b>：红章为虚线占位框</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src=".github/assets/render-pro.png" alt="Pro 版渲染（红章完整 + 国密验签）"/>
+      <br/>
+      <sub><b>Pro 版</b>：红章完整渲染 + 国密验签</sub>
+    </td>
+  </tr>
+</table>
 
 ### Pro 能解锁什么
 
