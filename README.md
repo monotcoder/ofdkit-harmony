@@ -89,6 +89,9 @@ Issue / PR / 讨论请到 Gitee 主仓。
 - DevEco Studio + ohpm
 - ArkTS / ArkUI
 
+> ⚠️ **当前仅支持 HarmonyOS NEXT，不支持 OpenHarmony**。
+> 库内使用了 `@kit.*` Kit 命名空间 API（ImageKit / CoreFileKit / BasicServicesKit / ArkUI 等），OpenHarmony 的 `@ohos.*` 命名空间下没有直接对应，需要做适配才能跑通。OpenHarmony 兼容性目前不在路线图上，如有此需求欢迎到 Gitee 主仓提 Issue 讨论。
+
 ## 快速开始
 
 ### 安装
