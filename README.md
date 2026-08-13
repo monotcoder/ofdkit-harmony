@@ -163,12 +163,6 @@ OFDRenderer.setFallbackFontFamily('OFD-Fallback');
 
 详细的扩展开发引导见 [EXTENSIONS.md](./EXTENSIONS.md)。
 
-## 路线图
-
-后续能力会按 `core / parser / resources / render / signature / annotation / metadata / components` 分层演进，便于不同客户套餐按需打包。
-
-详细计划见 [ROADMAP.md](./ROADMAP.md)。
-
 ### 组合：连续滚动 + 缩略图 + 全文搜索
 
 ```typescript

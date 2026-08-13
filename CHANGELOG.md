@@ -2,15 +2,6 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
-
-### 新增
-
-- 增加模块分层路线图。
-- 增加坐标系统、矢量笔迹和批注元数据基础类型入口。
-- 增加批注集合管理与点击命中基础能力。
-- 增加批注元数据展示字段构建器。
-
 ## [0.2.0] - 2026-05-22
 
 首次发布到 ohpm registry：`ohpm install ofdkit-harmony`。
