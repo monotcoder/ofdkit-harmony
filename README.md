@@ -79,6 +79,9 @@ Issue / PR / 讨论请到 Gitee 主仓。
 |---|---|
 | 国密 SM2/SM3 签章验签 | 由 [Pro 版](#pro) 提供 |
 | 印章图像绘制（光栅 / 矢量） | 由 Pro 版提供 |
+| 手写签批 / 橡皮擦 / 批注持久化 | 由 Pro 版提供 |
+| 手写笔防误触 / 矢量笔迹缩放 | 由 Pro 版提供 |
+| 批注元数据追溯 / 字段脱敏 | 由 Pro 版提供 |
 | OFD ↔ PDF 转换 | 由 Pro 版提供（规划中）|
 | CMYK / Pattern / Gradient 颜色空间 | 当前按 RGB 处理 |
 | 表单填充（CT_FormFile） | 未实现 |
@@ -231,7 +234,7 @@ struct Reader {
 
 ## 🛡️ 与商业版的分工
 
-`ofdkit-harmony-pro` 是开源版的闭源商业扩展包，专攻**电子发票 / 公文 / 合同场景里的国密签章验签与红章渲染**——这部分能力涉及 GB/T 35275-2017、`@kit.CryptoArchitectureKit` 调用约定、各家签发工具（数科 / 福昕 / CFCA）的差异适配，自行实现成本较高。
+`ofdkit-harmony-pro` 是开源版的闭源商业扩展包，专攻**电子发票 / 公文 / 合同场景里的国密签章验签、红章渲染、手写签批和元数据追溯**。这些能力涉及 GB/T 35275-2017、`@kit.CryptoArchitectureKit` 调用约定、各家签发工具（数科 / 福昕 / CFCA）的差异适配，以及 Pad 手写笔交互、防误触、矢量笔迹保存等政企交付细节，自行实现成本较高。
 
 <table align="center">
   <tr>
@@ -261,6 +264,19 @@ struct Reader {
 - 矢量印章（`picture.type='OFD'`）嵌入 OFD 递归解析与渲染
 - 字体注册带命名空间，避免与主文档冲突
 
+**手写签批**
+- 手写笔默认落笔即写，手指保留阅读、滚动、缩放等操作
+- 基于 `SourceTool.Pen` 做输入源限制，降低手掌 / 手指误触留下划痕的概率
+- 笔迹保存为矢量 stroke，缩放后按页面物理坐标重绘，不保存为低清图片
+- 支持单页 / 连续滚动模式签批、撤销、清空、基础橡皮擦
+- 支持笔迹平滑与速度压力估算，真实压感和笔锋算法持续迭代中
+
+**元数据追溯**
+- 每条批注可携带用户、部门、角色、业务 ID、时间和客户自定义字段
+- 点击笔迹可返回配置后的展示字段，用于 Toast、气泡或业务弹窗
+- 支持字段显示 / 隐藏配置，以及姓名、手机、邮箱、证件号、自定义规则脱敏
+- 批注 JSON 持久化，便于后续对接服务端同步、审计和防篡改链路
+
 **5 级验签状态视觉化**
 
 | 状态 | 含义 | 渲染表现 |
@@ -285,10 +301,40 @@ aboutToAppear(): void {
 
 之后开源版的 `OFDPageView` / `OFDDocumentScroll` 正常使用，签章会自动按状态分级显示，无需改业务代码。
 
+如需手写签批，把阅读组件替换为 Pro 组件即可：
+
+```typescript
+import { ProInkPageView, ProInkDocumentScroll } from 'ofdkit-harmony-pro';
+
+// 单页签批
+ProInkPageView({
+  page,
+  metadataProvider: () => ({
+    userName: '张三',
+    department: '法务部',
+    role: '签批人',
+    businessId: '合同-2026-001',
+    createdAt: Date.now()
+  }),
+  onAnnotationsChange: (annotations) => {
+    // 保存批注 JSON 或同步到业务服务
+  }
+})
+
+// 连续滚动签批
+ProInkDocumentScroll({
+  pages: doc.pages,
+  initialAnnotations: annotations,
+  metadataProvider: () => createMetadata(),
+  onAnnotationsChange: (annotations) => saveAnnotations(annotations)
+})
+```
+
 ### 工程约定
 
 - **依赖单向**：Pro → 开源版，Pro 不修改开源版任何代码
-- **扩展点同源**：Pro 能力全部通过开源版定义的 `ObjectRendererExt` / `DocumentExtension` 接入；你也可以用同一套机制接入自研的验签 / 转换 / 表单实现
+- **扩展点同源**：签章能力通过开源版定义的 `ObjectRendererExt` / `DocumentExtension` 接入；签批能力以独立 Pro 组件叠加在开源阅读组件之上
+- **按需组合**：签章阅读、手写签批、政企追溯等能力可按客户套餐拆分交付
 - **试用 / 报价 / 定制开发 / 技术咨询** → 见下方 [商务合作](#商务合作)
 
 ## 商务合作
